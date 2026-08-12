@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>JCC Admin Controller</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JCC Admin">
+<meta name="theme-color" content="#0C447C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0C447C; --navy-dark:#042C53; --gold:#C99A3B; --gold-light:#EFD9A8;
+  --cream:#FDF8F0; --border:#E7DFCF; --red:#D85A30; --red-dark:#993C1D;
+  --amber:#EF9F27; --amber-dark:#854F0B; --green:#639922; --green-dark:#3B6D11;
+  --muted:#6B7280; --ink:#1C2A38;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased;}
+h1,h2,.serif{font-family:'Playfair Display',serif;}
+button{font-family:'DM Sans',sans-serif;cursor:pointer;border:none;}
+input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
+
+#gate{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px;}
+.gate-card{background:#fff;border-radius:16px;padding:36px 28px;max-width:360px;width:100%;text-align:center;}
+.gate-card .serif{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.gate-card .sub{font-size:13px;color:var(--muted);margin-bottom:22px;}
+.gate-card input{width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 14px;font-size:15px;margin-bottom:12px;}
+.gate-card input:focus{outline:none;border-color:var(--gold);}
+.gate-btn{width:100%;height:46px;background:var(--navy);color:var(--gold);font-weight:700;font-size:13px;letter-spacing:0.06em;border-radius:10px;}
+.gate-err{color:var(--red-dark);font-size:12.5px;margin-top:10px;display:none;}
+.gate-err.show{display:block;}
+
+#topbar{position:sticky;top:0;z-index:50;background:var(--navy);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+#topbar .brand{display:flex;flex-direction:column;}
+#topbar .brand .serif{color:var(--gold);font-size:17px;font-weight:700;line-height:1.1;}
+#topbar .brand .tag{color:rgba(255,255,255,0.7);font-size:10.5px;letter-spacing:0.08em;margin-top:2px;}
+#topbar .actions{display:flex;gap:8px;}
+.tb-btn{height:38px;padding:0 14px;border-radius:8px;background:rgba(255,255,255,0.12);color:#fff;font-size:12px;font-weight:700;letter-spacing:0.04em;display:flex;align-items:center;gap:6px;}
+.tb-btn.gold{background:var(--gold);color:var(--navy-dark);}
+
+#app{max-width:980px;margin:0 auto;padding:18px;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px;}
+.stat-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+.stat-card .num{font-size:26px;font-weight:700;color:var(--navy);font-family:'Playfair Display',serif;}
+.stat-card .lbl{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;}
+
+.toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.search-box{flex:1;min-width:180px;height:44px;border:1.5px solid var(--border);border-radius:10px;padding:0 14px;font-size:14px;background:#fff;}
+.search-box:focus{outline:none;border-color:var(--gold);}
+.filter-chip{height:44px;padding:0 16px;border-radius:10px;border:1.5px solid var(--border);background:#fff;font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:0.03em;}
+.filter-chip.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+
+.user-list{display:flex;flex-direction:column;gap:8px;}
+.user-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.user-card.is-disabled{opacity:0.55;}
+.user-main{flex:1;min-width:180px;}
+.user-email{font-size:14.5px;font-weight:700;color:var(--ink);word-break:break-word;}
+.user-meta{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:0.04em;padding:3px 8px;border-radius:20px;}
+.badge.free{background:#EAF3DE;color:var(--green-dark);}
+.badge.paid{background:var(--gold-light);color:#6B4E10;}
+.badge.active{background:#EAF3DE;color:var(--green-dark);}
+.badge.disabled{background:#FCEBEB;color:var(--red-dark);}
+.badge.urgent{background:#FCEBEB;color:var(--red-dark);}
+.badge.upcoming{background:#FAEEDA;color:var(--amber-dark);}
+.badge.nosetup{background:#F1EFE8;color:var(--muted);}
+
+.user-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.icon-btn{width:44px;height:44px;border-radius:10px;background:var(--cream);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;}
+.icon-btn.send{color:var(--navy);}
+.toggle-btn{height:44px;padding:0 16px;border-radius:10px;font-size:12px;font-weight:700;letter-spacing:0.03em;}
+.toggle-btn.enable{background:var(--green);color:#fff;}
+.toggle-btn.disable{background:var(--red);color:#fff;}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--muted);}
+.empty-state .serif{font-size:18px;color:var(--navy);margin-bottom:6px;}
+
+#addModal{position:fixed;inset:0;background:rgba(12,68,124,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px;}
+#addModal.show{display:flex;}
+.modal-card{background:#fff;border-radius:16px;padding:26px 24px;max-width:380px;width:100%;}
+.modal-card .serif{font-size:19px;font-weight:700;color:var(--navy);margin-bottom:16px;}
+.field-label{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.04em;margin-bottom:6px;display:block;}
+.modal-card input,.modal-card select{width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 14px;margin-bottom:16px;}
+.modal-card input:focus,.modal-card select:focus{outline:none;border-color:var(--gold);}
+.modal-actions{display:flex;gap:10px;}
+.modal-actions button{flex:1;height:46px;border-radius:10px;font-weight:700;font-size:12.5px;letter-spacing:0.04em;}
+.btn-cancel{background:var(--cream);color:var(--muted);border:1.5px solid var(--border);}
+.btn-confirm{background:var(--navy);color:var(--gold);}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--navy-dark);color:#fff;padding:13px 22px;border-radius:10px;font-size:13.5px;font-weight:600;z-index:300;transition:transform 0.25s;max-width:90vw;text-align:center;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.err{background:var(--red-dark);}
+
+.loading-row{text-align:center;padding:40px;color:var(--muted);font-size:13px;}
+
+.view-tabs{display:flex;gap:8px;margin-bottom:16px;}
+.view-tab{height:40px;padding:0 18px;border-radius:10px;background:#fff;border:1.5px solid var(--border);font-size:12.5px;font-weight:700;letter-spacing:0.04em;color:var(--muted);}
+.view-tab.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+
+.revenue-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+.revenue-total-card{background:var(--navy);border-radius:12px;padding:18px;}
+.revenue-total-card .lbl{font-size:11px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;}
+.revenue-total-card .num{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--gold);margin-top:4px;}
+.revenue-month-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px;}
+.revenue-month-card .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;}
+.revenue-month-card .num{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--navy);margin-top:4px;}
+.revenue-month-card .count{font-size:11px;color:var(--green-dark);font-weight:600;margin-top:2px;}
+
+.revenue-breakdown-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;}
+.rev-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.rev-row .rev-month{width:110px;font-size:12.5px;color:var(--ink);flex-shrink:0;}
+.rev-row .rev-bar-track{flex:1;background:var(--cream);border-radius:6px;overflow:hidden;height:22px;border:1px solid var(--border);}
+.rev-row .rev-bar-fill{height:100%;background:var(--navy);}
+.rev-row .rev-amt{width:100px;text-align:right;font-size:12.5px;font-weight:700;color:var(--navy);flex-shrink:0;}
+#revenueUndatedNote{font-size:11px;color:var(--muted);border-top:1px solid var(--border);margin-top:14px;padding-top:10px;}
+
+@media(max-width:600px){
+  #app{padding:12px;}
+  .user-card{flex-direction:column;align-items:stretch;}
+  .user-actions{justify-content:flex-end;}
+}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-card">
+    <div class="serif">JCC ADMIN CONTROLLER</div>
+    <div class="sub">Enter the admin password to continue.</div>
+    <input type="password" id="gatePw" placeholder="Admin password" autocomplete="off">
+    <button class="gate-btn" id="gateBtn" onclick="_adminLogin()">UNLOCK</button>
+    <div class="gate-err" id="gateErr">Incorrect password.</div>
+  </div>
+</div>
+
+<div id="topbar" style="display:none;">
+  <div class="brand">
+    <div class="serif">JCC ADMIN CONTROLLER</div>
+    <div class="tag">SUMMARIZER + APP SELL ACCESS</div>
+  </div>
+  <div class="actions">
+    <button class="tb-btn" onclick="loadUsers()">&#8635; REFRESH</button>
+    <button class="tb-btn gold" onclick="openAddModal()">+ ADD EMAIL</button>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="users" onclick="setView('users')">USERS</button>
+    <button class="view-tab" data-view="revenue" onclick="setView('revenue')">REVENUE</button>
+  </div>
+
+  <div id="usersView">
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="toolbar">
+      <input type="text" class="search-box" id="searchBox" placeholder="Search by email…" oninput="renderUsers()">
+      <button class="filter-chip active" data-filter="all" onclick="setFilter('all')">ALL</button>
+      <button class="filter-chip" data-filter="paid" onclick="setFilter('paid')">PAID</button>
+      <button class="filter-chip" data-filter="free" onclick="setFilter('free')">FREE</button>
+      <button class="filter-chip" data-filter="disabled" onclick="setFilter('disabled')">DISABLED</button>
+    </div>
+
+    <div class="user-list" id="userList">
+      <div class="loading-row">Loading users…</div>
+    </div>
+  </div>
+
+  <div id="revenueView" style="display:none;">
+    <div class="revenue-top-grid">
+      <div class="revenue-total-card">
+        <div class="lbl">Total revenue to date</div>
+        <div class="num" id="revTotalToDate">₱0</div>
+      </div>
+      <div class="revenue-month-card">
+        <div class="lbl">This month</div>
+        <div class="num" id="revThisMonth">₱0</div>
+        <div class="count" id="revThisMonthCount"></div>
+      </div>
+    </div>
+    <div class="revenue-breakdown-label">Monthly breakdown</div>
+    <div id="revenueMonthly"><div class="loading-row">Loading revenue…</div></div>
+    <div id="revenueUndatedNote" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="addModal">
+  <div class="modal-card">
+    <div class="serif">Add email</div>
+    <label class="field-label">EMAIL ADDRESS</label>
+    <input type="email" id="newEmail" placeholder="name@email.com" autocomplete="off">
+    <label class="field-label">TIER</label>
+    <select id="newTier" onchange="_toggleAmountField()">
+      <option value="free">Free (Email Access)</option>
+      <option value="paid">Paid (Buyers)</option>
+    </select>
+    <div id="amountFieldWrap" style="display:none;">
+      <label class="field-label">AMOUNT PAID (₱) — editable for personal discounts</label>
+      <input type="number" id="newAmount" placeholder="1998" min="0" step="1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">CANCEL</button>
+      <button class="btn-confirm" onclick="submitAddEmail()">ADD</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzzr31mj_SceTsufLQLiQyfUM4wFDtRZrBd4FpF7_ddsQjg53qBeX_IhE6oEKgnBB2w/exec';
+let _adminPassword = '';
+let _allUsers = [];
+let _activeFilter = 'all';
+
+function _getStore(k){ try{return sessionStorage.getItem(k);}catch(e){return null;} }
+function _setStore(k,v){ try{sessionStorage.setItem(k,v);}catch(e){} }
+
+function showToast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isErr ? 'show err' : 'show';
+  setTimeout(()=>{ t.className = t.className.replace('show',''); }, 2600);
+}
+
+function _adminLogin(){
+  const pw = document.getElementById('gatePw').value || '';
+  const btn = document.getElementById('gateBtn');
+  const err = document.getElementById('gateErr');
+  err.classList.remove('show');
+  btn.textContent = 'CHECKING…'; btn.disabled = true;
+  fetch(SCRIPT_URL+'?action=adminlistusers&adminPassword='+encodeURIComponent(pw),{method:'GET',redirect:'follow',cache:'no-store'})
+    .then(r=>r.json())
+    .then(data=>{
+      btn.textContent = 'UNLOCK'; btn.disabled = false;
+      if(data.status === 'ok'){
+        _adminPassword = pw;
+        _setStore('jcc_admin_pw', pw);
+        _allUsers = data.users || [];
+        document.getElementById('gate').style.display = 'none';
+        document.getElementById('topbar').style.display = 'flex';
+        document.getElementById('app').style.display = 'block';
+        renderStats();
+        renderUsers();
+      } else {
+        err.classList.add('show');
+      }
+    })
+    .catch(()=>{
+      btn.textContent = 'UNLOCK'; btn.disabled = false;
+      err.textContent = 'Connection error. Try again.';
+      err.classList.add('show');
+    });
+}
+
+(function autoUnlock(){
+  const saved = _getStore('jcc_admin_pw');
+  if(saved){ document.getElementById('gatePw').value = saved; _adminLogin(); }
+})();
+
+function setView(v){
+  document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active', t.dataset.view===v));
+  document.getElementById('usersView').style.display = v==='users' ? 'block' : 'none';
+  document.getElementById('revenueView').style.display = v==='revenue' ? 'block' : 'none';
+  if(v==='revenue') loadRevenue();
+}
+
+function loadRevenue(){
+  document.getElementById('revenueMonthly').innerHTML = '<div class="loading-row">Loading revenue…</div>';
+  fetch(SCRIPT_URL+'?action=adminrevenue&adminPassword='+encodeURIComponent(_adminPassword),{method:'GET',redirect:'follow',cache:'no-store'})
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.status !== 'ok'){ showToast('Could not load revenue.', true); return; }
+      renderRevenue(data);
+    })
+    .catch(()=> showToast('Could not load revenue.', true));
+}
+
+function renderRevenue(data){
+  const fmt = n => '₱'+Math.round(n).toLocaleString('en-US');
+  document.getElementById('revTotalToDate').textContent = fmt(data.totalToDate || 0);
+
+  const now = new Date();
+  const thisKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const thisMonth = (data.monthly||[]).find(m=>m.key===thisKey);
+  document.getElementById('revThisMonth').textContent = fmt(thisMonth ? thisMonth.total : 0);
+  document.getElementById('revThisMonthCount').textContent = thisMonth ? thisMonth.count+' payment'+(thisMonth.count===1?'':'s') : 'No payments yet';
+
+  const monthly = data.monthly || [];
+  const container = document.getElementById('revenueMonthly');
+  if(monthly.length===0){
+    container.innerHTML = '<div class="empty-state"><div class="serif">No dated payments yet</div><div>Revenue will appear here as buyers pay or renew.</div></div>';
+  } else {
+    const maxTotal = Math.max(...monthly.map(m=>m.total));
+    container.innerHTML = monthly.map(m=>{
+      const pct = maxTotal>0 ? Math.round((m.total/maxTotal)*100) : 0;
+      return '<div class="rev-row">'
+        + '<div class="rev-month">'+m.label+'</div>'
+        + '<div class="rev-bar-track"><div class="rev-bar-fill" style="width:'+pct+'%;"></div></div>'
+        + '<div class="rev-amt">'+fmt(m.total)+'</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  const undatedNote = document.getElementById('revenueUndatedNote');
+  if(data.undated && data.undated > 0){
+    undatedNote.style.display = 'block';
+    undatedNote.textContent = fmt(data.undated)+' from buyers with no recorded payment date is included in the total above but not shown in the monthly breakdown.';
+  } else {
+    undatedNote.style.display = 'none';
+  }
+}
+
+function loadUsers(){
+  fetch(SCRIPT_URL+'?action=adminlistusers&adminPassword='+encodeURIComponent(_adminPassword),{method:'GET',redirect:'follow',cache:'no-store'})
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.status !== 'ok'){ showToast('Session expired — please unlock again.', true); return; }
+      _allUsers = data.users || [];
+      renderStats();
+      renderUsers();
+    })
+    .catch(()=> showToast('Could not refresh users.', true));
+}
+
+function renderStats(){
+  const total = _allUsers.length;
+  const paid = _allUsers.filter(u=>u.tier==='paid').length;
+  const disabled = _allUsers.filter(u=>u.disabled).length;
+  const expiringSoon = _allUsers.filter(u=>u.daysLeft!==null && u.daysLeft>=0 && u.daysLeft<=30).length;
+  document.getElementById('statsRow').innerHTML =
+    '<div class="stat-card"><div class="num">'+total+'</div><div class="lbl">Total users</div></div>'+
+    '<div class="stat-card"><div class="num">'+paid+'</div><div class="lbl">Paid buyers</div></div>'+
+    '<div class="stat-card"><div class="num">'+disabled+'</div><div class="lbl">Disabled</div></div>'+
+    '<div class="stat-card"><div class="num">'+expiringSoon+'</div><div class="lbl">Expiring &le;30 days</div></div>';
+}
+
+function setFilter(f){
+  _activeFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.toggle('active', c.dataset.filter===f));
+  renderUsers();
+}
+
+function renderUsers(){
+  const q = (document.getElementById('searchBox').value||'').trim().toLowerCase();
+  let list = _allUsers.slice();
+  if(_activeFilter==='paid') list = list.filter(u=>u.tier==='paid');
+  if(_activeFilter==='free') list = list.filter(u=>u.tier==='free');
+  if(_activeFilter==='disabled') list = list.filter(u=>u.disabled);
+  if(q) list = list.filter(u=>u.email.toLowerCase().includes(q));
+
+  const container = document.getElementById('userList');
+  if(list.length===0){
+    container.innerHTML = '<div class="empty-state"><div class="serif">No users found</div><div>Try a different search or filter.</div></div>';
+    return;
+  }
+
+  container.innerHTML = list.map(u=>{
+    let expiryBadge = '';
+    if(u.daysLeft !== null){
+      if(u.daysLeft < 0) expiryBadge = '<span class="badge urgent">EXPIRED</span>';
+      else if(u.daysLeft <= 7) expiryBadge = '<span class="badge urgent">'+u.daysLeft+' DAYS LEFT</span>';
+      else if(u.daysLeft <= 30) expiryBadge = '<span class="badge upcoming">'+u.daysLeft+' DAYS LEFT</span>';
+    }
+    const setupBadge = u.hasPassword ? '' : '<span class="badge nosetup">NOT SET UP</span>';
+    const amountBadge = (u.amountPaid !== null && u.amountPaid !== undefined) ? '<span class="badge paid">₱'+Number(u.amountPaid).toLocaleString('en-US')+'</span>' : '';
+    return '<div class="user-card '+(u.disabled?'is-disabled':'')+'">'
+      + '<div class="user-main">'
+      +   '<div class="user-email">'+u.email+'</div>'
+      +   '<div class="user-meta">'
+      +     '<span class="badge '+u.tier+'">'+u.tier.toUpperCase()+'</span>'
+      +     '<span class="badge '+(u.disabled?'disabled':'active')+'">'+(u.disabled?'DISABLED':'ACTIVE')+'</span>'
+      +     setupBadge
+      +     amountBadge
+      +     expiryBadge
+      +   '</div>'
+      + '</div>'
+      + '<div class="user-actions">'
+      +   '<button class="icon-btn send" title="Send access link" onclick="sendLink(\''+u.email+'\')">&#9993;</button>'
+      +   '<button class="toggle-btn '+(u.disabled?'enable':'disable')+'" onclick="toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+')">'+(u.disabled?'ENABLE':'DISABLE')+'</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function toggleUser(email, tier, disabled){
+  fetch(SCRIPT_URL, {
+    method:'POST', redirect:'follow',
+    body: JSON.stringify({action:'admintoggle', adminPassword:_adminPassword, email:email, tier:tier, disabled:disabled})
+  }).then(r=>r.json()).then(data=>{
+    if(data.status==='ok'){
+      showToast(disabled ? email+' disabled.' : email+' enabled.');
+      loadUsers();
+    } else {
+      showToast('Could not update this user.', true);
+    }
+  }).catch(()=> showToast('Connection error.', true));
+}
+
+function sendLink(email){
+  showToast('Sending access link to '+email+'…');
+  fetch(SCRIPT_URL, {
+    method:'POST', redirect:'follow',
+    body: JSON.stringify({action:'adminsendlink', adminPassword:_adminPassword, email:email, itemKey:'summarizer'})
+  }).then(r=>r.json()).then(data=>{
+    showToast(data.status==='ok' ? 'Access link sent to '+email+'.' : 'Could not send email.', data.status!=='ok');
+  }).catch(()=> showToast('Connection error.', true));
+}
+
+function openAddModal(){
+  document.getElementById('newEmail').value='';
+  document.getElementById('newTier').value='free';
+  document.getElementById('newAmount').value='';
+  _toggleAmountField();
+  document.getElementById('addModal').classList.add('show');
+}
+function closeAddModal(){ document.getElementById('addModal').classList.remove('show'); }
+function _toggleAmountField(){
+  const isPaid = document.getElementById('newTier').value === 'paid';
+  document.getElementById('amountFieldWrap').style.display = isPaid ? 'block' : 'none';
+}
+
+function submitAddEmail(){
+  const email = (document.getElementById('newEmail').value||'').trim().toLowerCase();
+  const tier = document.getElementById('newTier').value;
+  const amount = tier==='paid' ? (Number(document.getElementById('newAmount').value)||0) : 0;
+  if(!email || !email.includes('@')){ showToast('Enter a valid email.', true); return; }
+  fetch(SCRIPT_URL, {
+    method:'POST', redirect:'follow',
+    body: JSON.stringify({action:'adminaddemail', adminPassword:_adminPassword, email:email, tier:tier, amount:amount})
+  }).then(r=>r.json()).then(data=>{
+    if(data.status==='ok'){
+      showToast(tier==='paid' ? email+' added as PAID (₱'+amount.toLocaleString('en-US')+').' : email+' added as free.');
+      closeAddModal();
+      loadUsers();
+    } else if(data.status==='ALREADY_EXISTS'){
+      showToast('That email is already on the list.', true);
+    } else {
+      showToast('Could not add this email.', true);
+    }
+  }).catch(()=> showToast('Connection error.', true));
+}
+</script>
+
+</body>
+</html>
