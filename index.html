@@ -639,8 +639,21 @@ table.dt tr:hover td{background:var(--bg);}
 <div class="modal-overlay" id="addModal">
   <div class="modal-box">
     <div class="modal-title">Add User</div>
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;">
+        <label class="field-label">First Name</label>
+        <input type="text" id="newFirstName" placeholder="Jaymar" autocomplete="off" oninput="_updateBulkNameNote()">
+      </div>
+      <div style="flex:1;">
+        <label class="field-label">Last Name</label>
+        <input type="text" id="newLastName" placeholder="Castro" autocomplete="off" oninput="_updateBulkNameNote()">
+      </div>
+    </div>
+    <label class="field-label">Branch <span style="text-transform:none;font-weight:400;">(optional — applies to every email below)</span></label>
+    <input type="text" id="newBranch" placeholder="NEEM TREE" autocomplete="off">
     <label class="field-label">Email address(es) — one per line, or separated by commas</label>
-    <textarea id="newEmail" placeholder="name@email.com&#10;name2@email.com, name3@email.com" autocomplete="off" rows="3" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13.5px;font-family:'Inter',sans-serif;resize:vertical;"></textarea>
+    <textarea id="newEmail" placeholder="name@email.com&#10;name2@email.com, name3@email.com" autocomplete="off" rows="3" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13.5px;font-family:'Inter',sans-serif;resize:vertical;" oninput="_updateBulkNameNote()"></textarea>
+    <div id="nameBulkNote" style="display:none;font-size:11.5px;color:var(--text-sec);margin-top:-8px;margin-bottom:14px;"></div>
     <label class="field-label">Tier</label>
     <select id="newTier" onchange="_toggleAmountField()">
       <option value="free">Free (Email Access)</option>
@@ -650,6 +663,7 @@ table.dt tr:hover td{background:var(--bg);}
       <label class="field-label">Amount paid (₱) — editable for personal discounts, applied to each email</label>
       <input type="number" id="newAmount" placeholder="1998" min="0" step="1">
     </div>
+    <div style="font-size:11.5px;color:var(--text-sec);margin-bottom:14px;">Each person gets their access link emailed automatically as soon as they're added.</div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="_blinkButton(this);closeAddModal();">CANCEL</button>
       <button class="btn-confirm" onclick="_blinkButton(this);submitAddEmail();">ADD USER</button>
@@ -1032,7 +1046,7 @@ function renderUsers(){
   tbody.innerHTML = list.map((u,idx)=>{
     const uid = 'u'+idx;
     return '<tr>'
-      +'<td><div class="cell-email">'+u.email+'</div></td>'
+      +'<td><div class="cell-email">'+u.email+'</div>'+(u.name?'<div class="cell-sub">'+u.name+'</div>':'')+'</td>'
       +'<td>'+_statusPills(u)+'</td>'
       +'<td><span class="pill '+(u.tier==='paid'?'paid':'free')+'">'+u.tier.toUpperCase()+'</span></td>'
       +'<td class="cell-muted">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</td>'
@@ -1055,7 +1069,7 @@ function renderUsers(){
 
   mobileList.innerHTML = list.map(u=>{
     return '<div class="mobile-user-card">'
-      +'<div class="top"><div class="email">'+u.email+'</div>'
+      +'<div class="top"><div><div class="email">'+u.email+'</div>'+(u.name?'<div style="font-size:11.5px;color:var(--text-sec);">'+u.name+'</div>':'')+'</div>'
       +'<button class="dots-btn" onclick="_blinkButton(this);viewUserDetail(\''+u.email+'\',\''+u.tier+'\');"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="19" r="1.2"></circle></svg></button></div>'
       +'<div class="pills">'+_statusPills(u)+'</div>'
       +'<div class="meta-grid">'
@@ -1130,9 +1144,13 @@ function sendLink(email){
 
 // ── Add User modal ──
 function openAddModal(){
+  document.getElementById('newFirstName').value='';
+  document.getElementById('newLastName').value='';
+  document.getElementById('newBranch').value='';
   document.getElementById('newEmail').value='';
   document.getElementById('newTier').value='free';
   document.getElementById('newAmount').value='';
+  document.getElementById('nameBulkNote').style.display='none';
   _toggleAmountField();
   document.getElementById('addModal').classList.add('show');
 }
@@ -1149,16 +1167,39 @@ function _parseEmailList(raw){
     .filter(e=>e.length>0);
 }
 
+function _updateBulkNameNote(){
+  const emails = _parseEmailList(document.getElementById('newEmail').value||'');
+  const hasName = (document.getElementById('newFirstName').value||'').trim() || (document.getElementById('newLastName').value||'').trim();
+  const note = document.getElementById('nameBulkNote');
+  if(emails.length>1 && hasName){
+    note.style.display='block';
+    note.textContent = 'Adding '+emails.length+' emails — the typed name only applies when adding one at a time. Each person\'s greeting will be guessed from their own email address instead.';
+  } else {
+    note.style.display='none';
+  }
+}
+
 function submitAddEmail(){
   const raw = document.getElementById('newEmail').value||'';
   const tier = document.getElementById('newTier').value;
   const amount = tier==='paid' ? (Number(document.getElementById('newAmount').value)||0) : 0;
+  const firstName = (document.getElementById('newFirstName').value||'').trim();
+  const lastName = (document.getElementById('newLastName').value||'').trim();
+  const branch = (document.getElementById('newBranch').value||'').trim();
+  const fullName = (firstName+' '+lastName).trim();
 
   const emails = _parseEmailList(raw);
   if(emails.length===0){ showToast('Enter at least one email.', true); return; }
 
   const invalid = emails.filter(e=>!e.includes('@') || !e.includes('.'));
   if(invalid.length>0){ showToast('Not a valid email: '+invalid[0], true); return; }
+
+  // The typed name only makes sense for a single person — for a bulk
+  // paste of multiple emails, sending the SAME name to every row would be
+  // wrong, so it's only applied when there's exactly one email. Branch
+  // applies to the whole batch either way (e.g. adding a branch's staff
+  // list together is a real use case).
+  const nameToSend = emails.length===1 ? fullName : '';
 
   const btn = document.querySelector('#addModal .btn-confirm');
   const originalLabel = btn.textContent;
@@ -1175,7 +1216,7 @@ function submitAddEmail(){
       btn.disabled = false;
       btn.textContent = originalLabel;
       const parts = [];
-      if(added) parts.push(added+' added');
+      if(added) parts.push(added+' added (access link sent)');
       if(exists) parts.push(exists+' already existed');
       if(failed) parts.push(failed+' failed');
       showToast(parts.join(', ')+'.', failed>0);
@@ -1186,7 +1227,7 @@ function submitAddEmail(){
     btn.textContent = 'ADDING '+(i+1)+'/'+emails.length+'…';
     fetch(SCRIPT_URL, {
       method:'POST', redirect:'follow',
-      body: JSON.stringify({action:'adminaddemail', adminPassword:_adminPassword, email:emails[i], tier:tier, amount:amount})
+      body: JSON.stringify({action:'adminaddemail', adminPassword:_adminPassword, email:emails[i], tier:tier, amount:amount, name:nameToSend, branch:branch})
     }).then(r=>r.json()).then(data=>{
       if(data.status==='ok') added++;
       else if(data.status==='ALREADY_EXISTS') exists++;
@@ -1204,7 +1245,7 @@ function submitAddEmail(){
 function viewUserDetail(email, tier){
   const u = _allUsers.find(x=>x.email===email && x.tier===tier);
   if(!u) return;
-  document.getElementById('detailModalTitle').textContent = u.email;
+  document.getElementById('detailModalTitle').textContent = u.name ? u.name+' — '+u.email : u.email;
   let loginHistoryHtml = '<div style="font-size:11.5px;color:var(--text-sec);margin-top:4px;">Login history for this user appears here once you\'ve viewed a range on the Logs page that includes their activity.</div>';
   if(_logsData && _logsData.entries){
     const userEntries = _logsData.entries.filter(e=>e.email.toLowerCase()===email.toLowerCase()).slice(0,10);
@@ -1213,7 +1254,8 @@ function viewUserDetail(email, tier){
     }
   }
   document.getElementById('detailModalBody').innerHTML =
-    '<div class="detail-row"><div class="k">Status</div><div class="v">'+_statusPills(u)+'</div></div>'
+    '<div class="detail-row"><div class="k">Name</div><div class="v">'+(u.name||'—')+'</div></div>'
+    +'<div class="detail-row"><div class="k">Status</div><div class="v">'+_statusPills(u)+'</div></div>'
     +'<div class="detail-row"><div class="k">Plan</div><div class="v">'+u.tier.toUpperCase()+'</div></div>'
     +'<div class="detail-row"><div class="k">Amount Paid</div><div class="v">'+(u.amountPaid!==null?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</div></div>'
     +'<div class="detail-row"><div class="k">Branch</div><div class="v">'+(u.branch||'—')+'</div></div>'
