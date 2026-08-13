@@ -143,7 +143,7 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
     <div class="serif">JCC ADMIN CONTROLLER</div>
     <div class="sub">Enter the admin password to continue.</div>
     <input type="password" id="gatePw" placeholder="Admin password" autocomplete="off">
-    <button class="gate-btn" id="gateBtn" onclick="_adminLogin()">UNLOCK</button>
+    <button class="gate-btn" id="gateBtn" onclick="_blinkButton(this);_adminLogin();">UNLOCK</button>
     <div class="gate-err" id="gateErr">Incorrect password.</div>
   </div>
 </div>
@@ -155,14 +155,14 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
   </div>
   <div class="actions">
     <button class="tb-btn" onclick="_blinkButton(this);loadUsers();">&#8635; REFRESH</button>
-    <button class="tb-btn gold" onclick="openAddModal()">+ ADD EMAIL</button>
+    <button class="tb-btn gold" onclick="_blinkButton(this);openAddModal();">+ ADD EMAIL</button>
   </div>
 </div>
 
 <div id="app" style="display:none;">
   <div class="view-tabs">
-    <button class="view-tab active" data-view="users" onclick="setView('users')">USERS</button>
-    <button class="view-tab" data-view="revenue" onclick="setView('revenue')">REVENUE</button>
+    <button class="view-tab active" data-view="users" onclick="_blinkButton(this);setView('users');">USERS</button>
+    <button class="view-tab" data-view="revenue" onclick="_blinkButton(this);setView('revenue');">REVENUE</button>
   </div>
 
   <div id="usersView">
@@ -170,11 +170,11 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
 
     <div class="toolbar">
       <input type="text" class="search-box" id="searchBox" placeholder="Search by email…" oninput="renderUsers()">
-      <button class="filter-chip active" data-filter="all" onclick="setFilter('all')">ALL</button>
-      <button class="filter-chip" data-filter="paid" onclick="setFilter('paid')">PAID</button>
-      <button class="filter-chip" data-filter="free" onclick="setFilter('free')">FREE</button>
-      <button class="filter-chip" data-filter="disabled" onclick="setFilter('disabled')">DISABLED</button>
-      <button class="filter-chip" data-filter="expiring" onclick="setFilter('expiring')">EXPIRING &le;30 DAYS</button>
+      <button class="filter-chip active" data-filter="all" onclick="_blinkButton(this);setFilter('all');">ALL</button>
+      <button class="filter-chip" data-filter="paid" onclick="_blinkButton(this);setFilter('paid');">PAID</button>
+      <button class="filter-chip" data-filter="free" onclick="_blinkButton(this);setFilter('free');">FREE</button>
+      <button class="filter-chip" data-filter="disabled" onclick="_blinkButton(this);setFilter('disabled');">DISABLED</button>
+      <button class="filter-chip" data-filter="expiring" onclick="_blinkButton(this);setFilter('expiring');">EXPIRING &le;30 DAYS</button>
     </div>
 
     <div class="toolbar">
@@ -187,7 +187,7 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);">to
         <input type="date" id="dateStartTo" class="search-box" style="flex:0 0 auto;height:44px;min-width:150px;" onchange="renderUsers()">
       </label>
-      <button class="filter-chip" onclick="_clearDateFilter()">CLEAR DATES</button>
+      <button class="filter-chip" onclick="_blinkButton(this);_clearDateFilter();">CLEAR DATES</button>
     </div>
 
     <div class="user-list" id="userList">
@@ -231,8 +231,8 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
       <input type="number" id="newAmount" placeholder="1998" min="0" step="1">
     </div>
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeAddModal()">CANCEL</button>
-      <button class="btn-confirm" onclick="submitAddEmail()">ADD</button>
+      <button class="btn-cancel" onclick="_blinkButton(this);closeAddModal();">CANCEL</button>
+      <button class="btn-confirm" onclick="_blinkButton(this);submitAddEmail();">ADD</button>
     </div>
   </div>
 </div>
@@ -473,9 +473,9 @@ function renderUsers(){
       +   startedLine
       + '</div>'
       + '<div class="user-actions">'
-      +   '<button class="icon-btn send" title="Send access link" onclick="sendLink(\''+u.email+'\')">&#9993;</button>'
-      +   '<button class="toggle-btn '+(u.disabled?'enable':'disable')+'" onclick="toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+')">'+(u.disabled?'ENABLE':'DISABLE')+'</button>'
-      +   '<button class="icon-btn delete" title="Delete access" onclick="deleteUser(\''+u.email+'\',\''+u.tier+'\')">&#128465;</button>'
+      +   '<button class="icon-btn send" title="Send access link" onclick="_blinkButton(this);sendLink(\''+u.email+'\')">&#9993;</button>'
+      +   '<button class="toggle-btn '+(u.disabled?'enable':'disable')+'" onclick="_blinkButton(this);toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+')">'+(u.disabled?'ENABLE':'DISABLE')+'</button>'
+      +   '<button class="icon-btn delete" title="Delete access" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\')">&#128465;</button>'
       + '</div>'
       + '</div>';
   }).join('');
