@@ -35,11 +35,20 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
 
 #topbar{position:sticky;top:0;z-index:50;background:var(--navy);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.08);}
 #topbar .brand{display:flex;flex-direction:column;}
-#topbar .brand .serif{color:var(--gold);font-size:17px;font-weight:700;line-height:1.1;}
+#topbar .brand .serif{font-family:Arial,Helvetica,sans-serif;color:#fff;font-size:17px;font-weight:700;line-height:1.1;}
 #topbar .brand .tag{color:rgba(255,255,255,0.7);font-size:10.5px;letter-spacing:0.08em;margin-top:2px;}
 #topbar .actions{display:flex;gap:8px;}
 .tb-btn{height:38px;padding:0 14px;border-radius:8px;background:rgba(255,255,255,0.12);color:#fff;font-size:12px;font-weight:700;letter-spacing:0.04em;display:flex;align-items:center;gap:6px;}
 .tb-btn.gold{background:var(--gold);color:var(--navy-dark);}
+
+@keyframes refreshBlink{
+  0%{opacity:1;}
+  25%{opacity:0.25;}
+  50%{opacity:1;}
+  75%{opacity:0.25;}
+  100%{opacity:1;}
+}
+.is-refreshing{animation:refreshBlink 0.5s ease-in-out;}
 
 #app{max-width:980px;margin:0 auto;padding:18px;}
 .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px;}
@@ -59,6 +68,7 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
 .user-main{flex:1;min-width:180px;}
 .user-email{font-size:14.5px;font-weight:700;color:var(--ink);word-break:break-word;}
 .user-meta{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.user-started{font-size:11px;color:var(--muted);margin-top:4px;}
 .badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:0.04em;padding:3px 8px;border-radius:20px;}
 .badge.free{background:#EAF3DE;color:var(--green-dark);}
 .badge.paid{background:var(--gold-light);color:#6B4E10;}
@@ -71,6 +81,8 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
 .user-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;}
 .icon-btn{width:44px;height:44px;border-radius:10px;background:var(--cream);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;}
 .icon-btn.send{color:var(--navy);}
+.icon-btn.delete{color:var(--red-dark);}
+.icon-btn.delete:hover{background:#FCEBEB;border-color:var(--red);}
 .toggle-btn{height:44px;padding:0 16px;border-radius:10px;font-size:12px;font-weight:700;letter-spacing:0.03em;}
 .toggle-btn.enable{background:var(--green);color:#fff;}
 .toggle-btn.disable{background:var(--red);color:#fff;}
@@ -142,7 +154,7 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
     <div class="tag">SUMMARIZER + APP SELL ACCESS</div>
   </div>
   <div class="actions">
-    <button class="tb-btn" onclick="loadUsers()">&#8635; REFRESH</button>
+    <button class="tb-btn" onclick="_blinkButton(this);loadUsers();">&#8635; REFRESH</button>
     <button class="tb-btn gold" onclick="openAddModal()">+ ADD EMAIL</button>
   </div>
 </div>
@@ -162,6 +174,20 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
       <button class="filter-chip" data-filter="paid" onclick="setFilter('paid')">PAID</button>
       <button class="filter-chip" data-filter="free" onclick="setFilter('free')">FREE</button>
       <button class="filter-chip" data-filter="disabled" onclick="setFilter('disabled')">DISABLED</button>
+      <button class="filter-chip" data-filter="expiring" onclick="setFilter('expiring')">EXPIRING &le;30 DAYS</button>
+    </div>
+
+    <div class="toolbar">
+      <select class="search-box" id="branchFilter" style="flex:0 0 auto;min-width:160px;" onchange="renderUsers()">
+        <option value="">All branches</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);">Started
+        <input type="date" id="dateStartFrom" class="search-box" style="flex:0 0 auto;height:44px;min-width:150px;" onchange="renderUsers()">
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);">to
+        <input type="date" id="dateStartTo" class="search-box" style="flex:0 0 auto;height:44px;min-width:150px;" onchange="renderUsers()">
+      </label>
+      <button class="filter-chip" onclick="_clearDateFilter()">CLEAR DATES</button>
     </div>
 
     <div class="user-list" id="userList">
@@ -183,7 +209,7 @@ input,select{font-family:'DM Sans',sans-serif;font-size:14px;}
     </div>
     <div class="revenue-breakdown-label" style="display:flex;align-items:center;justify-content:space-between;">
       <span>Monthly breakdown</span>
-      <button class="filter-chip" style="height:30px;padding:0 12px;font-size:11px;" onclick="loadRevenue()">&#8635; REFRESH</button>
+      <button class="filter-chip" style="height:30px;padding:0 12px;font-size:11px;" onclick="_blinkButton(this);loadRevenue();">&#8635; REFRESH</button>
     </div>
     <div id="revenueMonthly"><div class="loading-row">Loading revenue…</div></div>
     <div id="revenueUndatedNote" style="display:none;"></div>
@@ -246,6 +272,7 @@ function _adminLogin(){
         document.getElementById('gate').style.display = 'none';
         document.getElementById('topbar').style.display = 'flex';
         document.getElementById('app').style.display = 'block';
+        _populateBranchFilter();
         renderStats();
         renderUsers();
         // Fire this in the background right away rather than waiting for
@@ -348,12 +375,21 @@ function renderRevenue(data){
   }
 }
 
+function _blinkButton(el){
+  if(!el) return;
+  el.classList.remove('is-refreshing');
+  void el.offsetWidth; // restart the animation if clicked again mid-blink
+  el.classList.add('is-refreshing');
+  setTimeout(()=> el.classList.remove('is-refreshing'), 550);
+}
+
 function loadUsers(){
   fetch(SCRIPT_URL+'?action=adminlistusers&adminPassword='+encodeURIComponent(_adminPassword),{method:'GET',redirect:'follow',cache:'no-store'})
     .then(r=>r.json())
     .then(data=>{
       if(data.status !== 'ok'){ showToast('Session expired — please unlock again.', true); return; }
       _allUsers = data.users || [];
+      _populateBranchFilter();
       renderStats();
       renderUsers();
     })
@@ -374,17 +410,39 @@ function renderStats(){
 
 function setFilter(f){
   _activeFilter = f;
-  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.toggle('active', c.dataset.filter===f));
+  document.querySelectorAll('.filter-chip[data-filter]').forEach(c=>c.classList.toggle('active', c.dataset.filter===f));
   renderUsers();
+}
+
+function _clearDateFilter(){
+  document.getElementById('dateStartFrom').value = '';
+  document.getElementById('dateStartTo').value = '';
+  renderUsers();
+}
+
+function _populateBranchFilter(){
+  const sel = document.getElementById('branchFilter');
+  const current = sel.value;
+  const branches = Array.from(new Set(_allUsers.map(u=>u.branch).filter(b=>b))).sort();
+  sel.innerHTML = '<option value="">All branches</option>' + branches.map(b=>'<option value="'+b+'">'+b+'</option>').join('');
+  if(branches.includes(current)) sel.value = current;
 }
 
 function renderUsers(){
   const q = (document.getElementById('searchBox').value||'').trim().toLowerCase();
+  const branchSel = (document.getElementById('branchFilter').value||'');
+  const dateFrom = document.getElementById('dateStartFrom').value||'';
+  const dateTo = document.getElementById('dateStartTo').value||'';
+
   let list = _allUsers.slice();
   if(_activeFilter==='paid') list = list.filter(u=>u.tier==='paid');
   if(_activeFilter==='free') list = list.filter(u=>u.tier==='free');
   if(_activeFilter==='disabled') list = list.filter(u=>u.disabled);
+  if(_activeFilter==='expiring') list = list.filter(u=>u.daysLeft!==null && u.daysLeft>=0 && u.daysLeft<=30);
   if(q) list = list.filter(u=>u.email.toLowerCase().includes(q));
+  if(branchSel) list = list.filter(u=>(u.branch||'')===branchSel);
+  if(dateFrom) list = list.filter(u=>u.firstLoginRaw && u.firstLoginRaw>=dateFrom);
+  if(dateTo) list = list.filter(u=>u.firstLoginRaw && u.firstLoginRaw<=dateTo);
 
   const container = document.getElementById('userList');
   if(list.length===0){
@@ -401,6 +459,7 @@ function renderUsers(){
     }
     const setupBadge = u.hasPassword ? '' : '<span class="badge nosetup">NOT SET UP</span>';
     const amountBadge = (u.amountPaid !== null && u.amountPaid !== undefined) ? '<span class="badge paid">₱'+Number(u.amountPaid).toLocaleString('en-US')+'</span>' : '';
+    const startedLine = u.firstLoginDate ? '<div class="user-started">Started '+u.firstLoginDate+(u.branch?' &middot; '+u.branch:'')+'</div>' : (u.branch ? '<div class="user-started">'+u.branch+'</div>' : '');
     return '<div class="user-card '+(u.disabled?'is-disabled':'')+'">'
       + '<div class="user-main">'
       +   '<div class="user-email">'+u.email+'</div>'
@@ -411,10 +470,12 @@ function renderUsers(){
       +     amountBadge
       +     expiryBadge
       +   '</div>'
+      +   startedLine
       + '</div>'
       + '<div class="user-actions">'
       +   '<button class="icon-btn send" title="Send access link" onclick="sendLink(\''+u.email+'\')">&#9993;</button>'
       +   '<button class="toggle-btn '+(u.disabled?'enable':'disable')+'" onclick="toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+')">'+(u.disabled?'ENABLE':'DISABLE')+'</button>'
+      +   '<button class="icon-btn delete" title="Delete access" onclick="deleteUser(\''+u.email+'\',\''+u.tier+'\')">&#128465;</button>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -430,6 +491,28 @@ function toggleUser(email, tier, disabled){
       loadUsers();
     } else {
       showToast('Could not update this user.', true);
+    }
+  }).catch(()=> showToast('Connection error.', true));
+}
+
+// Permanent — removes the row entirely (unlike Disable, which blocks
+// login but keeps everything: amount paid, first login date, history).
+// Confirmed before sending, since this can't be undone from the app.
+function deleteUser(email, tier){
+  const ok = confirm('Permanently delete access for '+email+'?\n\nThis removes their row entirely — amount paid, start date, and login history for this account will be gone. This cannot be undone.\n\nIf you just want to block them temporarily, use Disable instead.');
+  if(!ok) return;
+  fetch(SCRIPT_URL, {
+    method:'POST', redirect:'follow',
+    body: JSON.stringify({action:'admindelete', adminPassword:_adminPassword, email:email, tier:tier})
+  }).then(r=>r.json()).then(data=>{
+    if(data.status==='ok'){
+      showToast(email+' deleted.');
+      loadUsers();
+    } else if(data.status==='NOT_FOUND'){
+      showToast('User not found — may already be deleted.', true);
+      loadUsers();
+    } else {
+      showToast('Could not delete this user.', true);
     }
   }).catch(()=> showToast('Connection error.', true));
 }
