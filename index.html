@@ -273,10 +273,22 @@ function loadRevenue(){
   fetch(SCRIPT_URL+'?action=adminrevenue&adminPassword='+encodeURIComponent(_adminPassword),{method:'GET',redirect:'follow',cache:'no-store'})
     .then(r=>r.json())
     .then(data=>{
-      if(data.status !== 'ok'){ showToast('Could not load revenue.', true); return; }
+      if(data.status !== 'ok'){
+        console.error('adminrevenue response:', data);
+        const msg = data.status === 'DENIED'
+          ? 'Admin session expired — refresh and unlock again.'
+          : 'Could not load revenue. See browser console for details.';
+        document.getElementById('revenueMonthly').innerHTML = '<div class="empty-state"><div class="serif">Could not load revenue</div><div>'+msg+'</div></div>';
+        showToast(msg, true);
+        return;
+      }
       renderRevenue(data);
     })
-    .catch(()=> showToast('Could not load revenue.', true));
+    .catch(err=>{
+      console.error('adminrevenue fetch failed:', err);
+      document.getElementById('revenueMonthly').innerHTML = '<div class="empty-state"><div class="serif">Could not load revenue</div><div>Connection error — check your internet and try again.</div></div>';
+      showToast('Could not load revenue.', true);
+    });
 }
 
 function renderRevenue(data){
