@@ -639,15 +639,15 @@ table.dt tr:hover td{background:var(--bg);}
 <div class="modal-overlay" id="addModal">
   <div class="modal-box">
     <div class="modal-title">Add User</div>
-    <label class="field-label">Email address</label>
-    <input type="email" id="newEmail" placeholder="name@email.com" autocomplete="off">
+    <label class="field-label">Email address(es) — one per line, or separated by commas</label>
+    <textarea id="newEmail" placeholder="name@email.com&#10;name2@email.com, name3@email.com" autocomplete="off" rows="3" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13.5px;font-family:'Inter',sans-serif;resize:vertical;"></textarea>
     <label class="field-label">Tier</label>
     <select id="newTier" onchange="_toggleAmountField()">
       <option value="free">Free (Email Access)</option>
       <option value="paid">Paid (Buyers)</option>
     </select>
     <div id="amountFieldWrap" style="display:none;">
-      <label class="field-label">Amount paid (₱) — editable for personal discounts</label>
+      <label class="field-label">Amount paid (₱) — editable for personal discounts, applied to each email</label>
       <input type="number" id="newAmount" placeholder="1998" min="0" step="1">
     </div>
     <div class="modal-actions">
@@ -1142,25 +1142,62 @@ function _toggleAmountField(){
   document.getElementById('amountFieldWrap').style.display = isPaid ? 'block' : 'none';
 }
 
+function _parseEmailList(raw){
+  return (raw||'')
+    .split(/[\n,]+/)
+    .map(e=>e.trim().toLowerCase())
+    .filter(e=>e.length>0);
+}
+
 function submitAddEmail(){
-  const email = (document.getElementById('newEmail').value||'').trim().toLowerCase();
+  const raw = document.getElementById('newEmail').value||'';
   const tier = document.getElementById('newTier').value;
   const amount = tier==='paid' ? (Number(document.getElementById('newAmount').value)||0) : 0;
-  if(!email || !email.includes('@')){ showToast('Enter a valid email.', true); return; }
-  fetch(SCRIPT_URL, {
-    method:'POST', redirect:'follow',
-    body: JSON.stringify({action:'adminaddemail', adminPassword:_adminPassword, email:email, tier:tier, amount:amount})
-  }).then(r=>r.json()).then(data=>{
-    if(data.status==='ok'){
-      showToast(tier==='paid' ? email+' added as PAID (₱'+amount.toLocaleString('en-US')+').' : email+' added as free.');
+
+  const emails = _parseEmailList(raw);
+  if(emails.length===0){ showToast('Enter at least one email.', true); return; }
+
+  const invalid = emails.filter(e=>!e.includes('@') || !e.includes('.'));
+  if(invalid.length>0){ showToast('Not a valid email: '+invalid[0], true); return; }
+
+  const btn = document.querySelector('#addModal .btn-confirm');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+
+  let added = 0, exists = 0, failed = 0;
+
+  // Sequential, not parallel — each call is its own Apps Script round-trip
+  // (real latency per call, same as everywhere else in this app), and
+  // running them one at a time keeps the sheet writes safe from
+  // overlapping and gives honest progress feedback for a larger paste.
+  function addNext(i){
+    if(i >= emails.length){
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+      const parts = [];
+      if(added) parts.push(added+' added');
+      if(exists) parts.push(exists+' already existed');
+      if(failed) parts.push(failed+' failed');
+      showToast(parts.join(', ')+'.', failed>0);
       closeAddModal();
       loadUsers();
-    } else if(data.status==='ALREADY_EXISTS'){
-      showToast('That email is already on the list.', true);
-    } else {
-      showToast('Could not add this email.', true);
+      return;
     }
-  }).catch(()=> showToast('Connection error.', true));
+    btn.textContent = 'ADDING '+(i+1)+'/'+emails.length+'…';
+    fetch(SCRIPT_URL, {
+      method:'POST', redirect:'follow',
+      body: JSON.stringify({action:'adminaddemail', adminPassword:_adminPassword, email:emails[i], tier:tier, amount:amount})
+    }).then(r=>r.json()).then(data=>{
+      if(data.status==='ok') added++;
+      else if(data.status==='ALREADY_EXISTS') exists++;
+      else failed++;
+      addNext(i+1);
+    }).catch(()=>{
+      failed++;
+      addNext(i+1);
+    });
+  }
+  addNext(0);
 }
 
 // ── User Detail modal ──
