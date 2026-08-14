@@ -295,6 +295,14 @@ table.dt tr:hover td{background:var(--bg);}
     </div>
   </div>
 
+  <div class="sb-section" style="padding-top:14px;">App</div>
+  <div style="padding:2px 14px 8px;">
+    <div style="display:flex;background:rgba(255,255,255,0.06);border-radius:10px;padding:3px;gap:3px;">
+      <button id="appSwitchSummarizer" onclick="_blinkButton(this);switchApp('summarizer');" style="flex:1;padding:8px 6px;border-radius:8px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,0.14);border:none;line-height:1.3;">SUMMARIZER<br>+ APP SELL</button>
+      <button id="appSwitchClientPulse" onclick="_blinkButton(this);switchApp('clientpulse');" style="flex:1;padding:8px 6px;border-radius:8px;font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.55);background:none;border:none;line-height:1.3;">CLIENT<br>PULSE</button>
+    </div>
+  </div>
+
   <div class="sb-section">Main</div>
   <div class="sb-nav">
     <a class="sb-link active" data-view="dashboard" onclick="_blinkButton(this);navTo('dashboard');">
@@ -315,8 +323,8 @@ table.dt tr:hover td{background:var(--bg);}
     </a>
   </div>
 
-  <div class="sb-section">Management</div>
-  <div class="sb-nav">
+  <div class="sb-section" id="managementSectionLabel">Management</div>
+  <div class="sb-nav" id="managementSectionNav">
     <a class="sb-link" data-view="access" onclick="_blinkButton(this);navTo('access');">
       <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
       Access Control
@@ -467,7 +475,7 @@ table.dt tr:hover td{background:var(--bg);}
       <div class="panel" style="padding:0;overflow:visible;">
         <div class="data-table-wrap">
           <table class="dt">
-            <thead><tr>
+            <thead><tr id="usersTableHeadRow">
               <th>User</th><th>Status</th><th>Plan</th><th>Payment</th><th>Branch</th>
               <th>Start Date</th><th>Expiration</th><th>Last Login</th><th style="text-align:right;">Actions</th>
             </tr></thead>
@@ -639,6 +647,7 @@ table.dt tr:hover td{background:var(--bg);}
 <div class="modal-overlay" id="addModal">
   <div class="modal-box">
     <div class="modal-title">Add User</div>
+    <div id="nameFieldsWrap">
     <div style="display:flex;gap:10px;">
       <div style="flex:1;">
         <label class="field-label">First Name</label>
@@ -651,6 +660,7 @@ table.dt tr:hover td{background:var(--bg);}
     </div>
     <label class="field-label">Branch <span style="text-transform:none;font-weight:400;">(optional — applies to every email below)</span></label>
     <input type="text" id="newBranch" placeholder="NEEM TREE" autocomplete="off">
+    </div>
     <label class="field-label">Email address(es) — one per line, or separated by commas</label>
     <textarea id="newEmail" placeholder="name@email.com&#10;name2@email.com, name3@email.com" autocomplete="off" rows="3" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13.5px;font-family:'Inter',sans-serif;resize:vertical;" oninput="_updateBulkNameNote()"></textarea>
     <div id="nameBulkNote" style="display:none;font-size:11.5px;color:var(--text-sec);margin-top:-8px;margin-bottom:14px;"></div>
@@ -683,7 +693,16 @@ table.dt tr:hover td{background:var(--bg);}
 
 <div id="toast"></div>
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzzr31mj_SceTsufLQLiQyfUM4wFDtRZrBd4FpF7_ddsQjg53qBeX_IhE6oEKgnBB2w/exec';
+const SCRIPT_URL_SUMMARIZER = 'https://script.google.com/macros/s/AKfycbzzr31mj_SceTsufLQLiQyfUM4wFDtRZrBd4FpF7_ddsQjg53qBeX_IhE6oEKgnBB2w/exec';
+// Fill in with the Client Pulse Web App URL (Deploy → Manage deployments
+// on that sheet's own Apps Script project) before switching to it.
+const SCRIPT_URL_CLIENTPULSE = 'https://script.google.com/macros/s/AKfycbxEleKyoOgcsFZxOH7Dib-QLedLmnaDo65WoqO-dwF_dMEHjIHIpKokxohinSD6ZxtT3A/exec';
+let _currentApp = 'summarizer'; // 'summarizer' | 'clientpulse'
+function SCRIPT_URL_FOR(app){ return (app||_currentApp)==='clientpulse' ? SCRIPT_URL_CLIENTPULSE : SCRIPT_URL_SUMMARIZER; }
+// Kept as a plain constant too — every existing fetch call in this file
+// already references SCRIPT_URL directly. Reassigned on every app
+// switch so none of that existing code needs to change.
+let SCRIPT_URL = SCRIPT_URL_SUMMARIZER;
 let _adminPassword = '';
 let _allUsers = [];
 let _activeFilter = 'all';
@@ -699,6 +718,66 @@ let _currentView = 'dashboard';
 function _getStore(k){ try{return sessionStorage.getItem(k);}catch(e){return null;} }
 function _setStore(k,v){ try{sessionStorage.setItem(k,v);}catch(e){} }
 function _delStore(k){ try{sessionStorage.removeItem(k);}catch(e){} }
+
+// ── App switcher ──
+// Client Pulse is a genuinely simpler data model — one sheet, no
+// branch, no name, no disable/expiry — so rather than bolt those
+// concepts onto its backend, the UI adapts: fewer columns, fewer
+// filters, Access Control/Branches hidden entirely (those pages are
+// built around data Client Pulse doesn't have).
+function switchApp(app){
+  if(app === _currentApp) return;
+  _currentApp = app;
+  SCRIPT_URL = SCRIPT_URL_FOR(app);
+
+  document.getElementById('appSwitchSummarizer').style.background = app==='summarizer' ? 'rgba(255,255,255,0.14)' : 'none';
+  document.getElementById('appSwitchSummarizer').style.color = app==='summarizer' ? '#fff' : 'rgba(255,255,255,0.55)';
+  document.getElementById('appSwitchClientPulse').style.background = app==='clientpulse' ? 'rgba(255,255,255,0.14)' : 'none';
+  document.getElementById('appSwitchClientPulse').style.color = app==='clientpulse' ? '#fff' : 'rgba(255,255,255,0.55)';
+
+  const mgmtLabel = document.getElementById('managementSectionLabel');
+  const mgmtNav = document.getElementById('managementSectionNav');
+  mgmtLabel.style.display = app==='clientpulse' ? 'none' : 'block';
+  mgmtNav.style.display = app==='clientpulse' ? 'none' : 'block';
+
+  // Access Control / Branches don't apply to Client Pulse — bounce back
+  // to Dashboard rather than showing a page built around data that
+  // doesn't exist on this backend.
+  if(app==='clientpulse' && (_currentView==='access' || _currentView==='branches')){
+    navTo('dashboard');
+  }
+
+  // Toggle the Users page's filter row and table columns to match
+  // whichever backend is active.
+  document.getElementById('branchFilter').style.display = app==='clientpulse' ? 'none' : '';
+  document.querySelector('[data-filter="disabled"]').style.display = app==='clientpulse' ? 'none' : '';
+  document.querySelector('[data-filter="expiring"]').style.display = app==='clientpulse' ? 'none' : '';
+  _renderUsersTableHead();
+
+  // Stale data from the previous app must never show while the new
+  // app's fetch is still in flight.
+  _allUsers = [];
+  _revenueData = null;
+  _logsData = null;
+  _dashLogsData = null;
+  document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="9"><div class="loading-row">Loading users…</div></td></tr>';
+
+  loadUsers();
+  loadRevenue();
+  loadDashLogs(_dashLogsRange);
+  if(_currentView==='revenue') loadRevenue();
+  if(_currentView==='logs') setLogsRange(_logsRange);
+}
+
+function _renderUsersTableHead(){
+  const row = document.getElementById('usersTableHeadRow');
+  if(_currentApp==='clientpulse'){
+    row.innerHTML = '<th>User</th><th>Status</th><th>Payment</th><th>Last Login</th><th style="text-align:right;">Actions</th>';
+  } else {
+    row.innerHTML = '<th>User</th><th>Status</th><th>Plan</th><th>Payment</th><th>Branch</th>'
+      + '<th>Start Date</th><th>Expiration</th><th>Last Login</th><th style="text-align:right;">Actions</th>';
+  }
+}
 
 function showToast(msg, isErr){
   const t = document.getElementById('toast');
@@ -883,14 +962,21 @@ function renderDashboardKpis(){
   const revTotal = _revenueData ? _revenueData.totalToDate : null;
   const loginsToday = _dashLogsData ? _dashLogsData.counts.today : null;
 
+  const fifthCard = _currentApp==='clientpulse'
+    ? '<div class="kpi-card"><div class="kpi-label">Free Users</div><div class="kpi-value">'+(total-paid)+'</div><div class="kpi-trend neutral">access granted, ₱0 paid</div></div>'
+    : '<div class="kpi-card"><div class="kpi-label">Expiring Soon</div><div class="kpi-value">'+expiring+'</div><div class="kpi-trend '+(expiring>0?'warn':'neutral')+'">within 30 days</div></div>';
+
   el.innerHTML =
     '<div class="kpi-card"><div class="kpi-label">Total Users</div><div class="kpi-value">'+total+'</div><div class="kpi-trend neutral">'+paid+' paid &middot; '+(total-paid)+' free</div></div>'+
     '<div class="kpi-card"><div class="kpi-label">Paid Users</div><div class="kpi-value">'+paid+'</div><div class="kpi-trend neutral">'+(total>0?((paid/total)*100).toFixed(1):'0')+'% of users</div></div>'+
     '<div class="kpi-card"><div class="kpi-label">Total Revenue</div><div class="kpi-value">'+(revTotal!==null?'₱'+Math.round(revTotal).toLocaleString('en-US'):'…')+'</div><div class="kpi-trend neutral">all recorded payments</div></div>'+
     '<div class="kpi-card"><div class="kpi-label">Logins Today</div><div class="kpi-value">'+(loginsToday!==null?loginsToday:'…')+'</div><div class="kpi-trend neutral">across all apps</div></div>'+
-    '<div class="kpi-card"><div class="kpi-label">Expiring Soon</div><div class="kpi-value">'+expiring+'</div><div class="kpi-trend '+(expiring>0?'warn':'neutral')+'">within 30 days</div></div>';
+    fifthCard;
 
-  _renderDonut('dashUserDonut', [
+  _renderDonut('dashUserDonut', _currentApp==='clientpulse' ? [
+    { label:'Paid', value:paid, color:'#D9A62E' },
+    { label:'Free', value:total-paid, color:'#0B477D' }
+  ] : [
     { label:'Paid', value:paid, color:'#D9A62E' },
     { label:'Free', value:total-paid-disabled>=0?(total-paid):0, color:'#0B477D' },
     { label:'Disabled', value:disabled, color:'#D94A38' }
@@ -1001,10 +1087,12 @@ function _clearDateFilter(){
 
 function _statusPills(u){
   let out = '<span class="pill '+(u.tier==='paid'?'paid':'free')+'">'+u.tier.toUpperCase()+'</span>';
-  out += ' <span class="pill '+(u.disabled?'disabled':'active')+'">'+(u.disabled?'DISABLED':'ACTIVE')+'</span>';
+  if(_currentApp==='summarizer'){
+    out += ' <span class="pill '+(u.disabled?'disabled':'active')+'">'+(u.disabled?'DISABLED':'ACTIVE')+'</span>';
+    if(u.daysLeft!==null && u.daysLeft<0) out += ' <span class="pill disabled">EXPIRED</span>';
+    else if(u.daysLeft!==null && u.daysLeft<=30) out += ' <span class="pill expiring">'+u.daysLeft+'D LEFT</span>';
+  }
   if(!u.hasPassword) out += ' <span class="pill nosetup">NOT SET UP</span>';
-  if(u.daysLeft!==null && u.daysLeft<0) out += ' <span class="pill disabled">EXPIRED</span>';
-  else if(u.daysLeft!==null && u.daysLeft<=30) out += ' <span class="pill expiring">'+u.daysLeft+'D LEFT</span>';
   return out;
 }
 
@@ -1019,72 +1107,114 @@ function _lastLoginText(u){
 
 function renderUsers(){
   const q = (document.getElementById('searchBox').value||'').trim().toLowerCase();
-  const branchSel = (document.getElementById('branchFilter').value||'');
+  const branchSel = _currentApp==='summarizer' ? (document.getElementById('branchFilter').value||'') : '';
   const dateFrom = document.getElementById('dateStartFrom').value||'';
   const dateTo = document.getElementById('dateStartTo').value||'';
+  const colCount = _currentApp==='clientpulse' ? 5 : 9;
 
   let list = _allUsers.slice();
   if(_activeFilter==='paid') list = list.filter(u=>u.tier==='paid');
   if(_activeFilter==='free') list = list.filter(u=>u.tier==='free');
-  if(_activeFilter==='disabled') list = list.filter(u=>u.disabled);
-  if(_activeFilter==='expiring') list = list.filter(u=>u.daysLeft!==null && u.daysLeft>=0 && u.daysLeft<=30);
+  if(_currentApp==='summarizer' && _activeFilter==='disabled') list = list.filter(u=>u.disabled);
+  if(_currentApp==='summarizer' && _activeFilter==='expiring') list = list.filter(u=>u.daysLeft!==null && u.daysLeft>=0 && u.daysLeft<=30);
   if(q) list = list.filter(u=>u.email.toLowerCase().includes(q));
   if(branchSel) list = list.filter(u=>(u.branch||'')===branchSel);
-  if(dateFrom) list = list.filter(u=>u.firstLoginRaw && u.firstLoginRaw>=dateFrom);
-  if(dateTo) list = list.filter(u=>u.firstLoginRaw && u.firstLoginRaw<=dateTo);
+  if(dateFrom) list = list.filter(u=>(u.firstLoginRaw||u.lastPaymentRaw) && (u.firstLoginRaw||u.lastPaymentRaw)>=dateFrom);
+  if(dateTo) list = list.filter(u=>(u.firstLoginRaw||u.lastPaymentRaw) && (u.firstLoginRaw||u.lastPaymentRaw)<=dateTo);
 
   document.getElementById('usersSubtitle').textContent = _allUsers.length+' total users';
 
   const tbody = document.getElementById('usersTableBody');
   const mobileList = document.getElementById('usersMobileList');
   if(list.length===0){
-    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="t">No users found</div><div class="d">Try a different search or filter.</div></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="'+colCount+'"><div class="empty-state"><div class="t">No users found</div><div class="d">Try a different search or filter.</div></div></td></tr>';
     mobileList.innerHTML = '<div class="empty-state"><div class="t">No users found</div><div class="d">Try a different search or filter.</div></div>';
     return;
   }
 
   tbody.innerHTML = list.map((u,idx)=>{
     const uid = 'u'+idx;
-    return '<tr>'
-      +'<td><div class="cell-email">'+u.email+'</div>'+(u.name?'<div class="cell-sub">'+u.name+'</div>':'')+'</td>'
-      +'<td>'+_statusPills(u)+'</td>'
-      +'<td><span class="pill '+(u.tier==='paid'?'paid':'free')+'">'+u.tier.toUpperCase()+'</span></td>'
-      +'<td class="cell-muted">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</td>'
-      +'<td class="cell-muted">'+(u.branch||'—')+'</td>'
-      +'<td class="cell-muted">'+(u.firstLoginDate||'—')+'</td>'
-      +'<td class="cell-muted">'+(u.expiresOn||'—')+'</td>'
-      +'<td class="cell-muted">'+_lastLoginText(u)+'</td>'
-      +'<td class="actions-cell">'
-        +'<button class="dots-btn" onclick="_blinkButton(this);toggleActionMenu(\''+uid+'\',event);"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="19" r="1.2"></circle></svg></button>'
-        +'<div class="action-menu" id="menu-'+uid+'">'
-          +'<button onclick="_blinkButton(this);viewUserDetail(\''+u.email+'\',\''+u.tier+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>View User</button>'
-          +'<button onclick="_blinkButton(this);sendLink(\''+u.email+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><path d="M4 4h16v16H4z" opacity="0"></path><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4 20-7z"></path></svg>Send Access Link</button>'
-          +'<div class="divider"></div>'
-          +'<button onclick="_blinkButton(this);toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"></line></svg>'+(u.disabled?'Enable Account':'Disable Account')+'</button>'
-          +'<button class="danger" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>Delete User</button>'
-        +'</div>'
-      +'</td>'
-      +'</tr>';
+    return _currentApp==='clientpulse' ? _clientPulseTableRow(u, uid) : _summarizerTableRow(u, uid);
   }).join('');
 
-  mobileList.innerHTML = list.map(u=>{
-    return '<div class="mobile-user-card">'
-      +'<div class="top"><div><div class="email">'+u.email+'</div>'+(u.name?'<div style="font-size:11.5px;color:var(--text-sec);">'+u.name+'</div>':'')+'</div>'
-      +'<button class="dots-btn" onclick="_blinkButton(this);viewUserDetail(\''+u.email+'\',\''+u.tier+'\');"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="19" r="1.2"></circle></svg></button></div>'
-      +'<div class="pills">'+_statusPills(u)+'</div>'
-      +'<div class="meta-grid">'
-        +'<div><div class="k">Branch</div><div class="v">'+(u.branch||'—')+'</div></div>'
-        +'<div><div class="k">Payment</div><div class="v">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</div></div>'
-        +'<div><div class="k">Started</div><div class="v">'+(u.firstLoginDate||'—')+'</div></div>'
-        +'<div><div class="k">Last Login</div><div class="v">'+_lastLoginText(u)+'</div></div>'
+  mobileList.innerHTML = list.map(u=> _currentApp==='clientpulse' ? _clientPulseMobileCard(u) : _summarizerMobileCard(u)).join('');
+}
+
+function _summarizerTableRow(u, uid){
+  return '<tr>'
+    +'<td><div class="cell-email">'+u.email+'</div>'+(u.name?'<div class="cell-sub">'+u.name+'</div>':'')+'</td>'
+    +'<td>'+_statusPills(u)+'</td>'
+    +'<td><span class="pill '+(u.tier==='paid'?'paid':'free')+'">'+u.tier.toUpperCase()+'</span></td>'
+    +'<td class="cell-muted">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</td>'
+    +'<td class="cell-muted">'+(u.branch||'—')+'</td>'
+    +'<td class="cell-muted">'+(u.firstLoginDate||'—')+'</td>'
+    +'<td class="cell-muted">'+(u.expiresOn||'—')+'</td>'
+    +'<td class="cell-muted">'+_lastLoginText(u)+'</td>'
+    +'<td class="actions-cell">'
+      +'<button class="dots-btn" onclick="_blinkButton(this);toggleActionMenu(\''+uid+'\',event);"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="19" r="1.2"></circle></svg></button>'
+      +'<div class="action-menu" id="menu-'+uid+'">'
+        +'<button onclick="_blinkButton(this);viewUserDetail(\''+u.email+'\',\''+u.tier+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>View User</button>'
+        +'<button onclick="_blinkButton(this);sendLink(\''+u.email+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4 20-7z"></path></svg>Send Access Link</button>'
+        +'<div class="divider"></div>'
+        +'<button onclick="_blinkButton(this);toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"></line></svg>'+(u.disabled?'Enable Account':'Disable Account')+'</button>'
+        +'<button class="danger" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>Delete User</button>'
       +'</div>'
-      +'<div class="modal-actions" style="margin-top:12px;">'
-        +'<button class="btn-cancel" style="height:38px;font-size:11px;" onclick="_blinkButton(this);sendLink(\''+u.email+'\');">SEND LINK</button>'
-        +'<button class="btn-cancel" style="height:38px;font-size:11px;" onclick="_blinkButton(this);toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+');">'+(u.disabled?'ENABLE':'DISABLE')+'</button>'
-        +'<button class="btn-danger" style="height:38px;font-size:11px;" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\');">DELETE</button>'
+    +'</td>'
+    +'</tr>';
+}
+
+// Client Pulse has no branch/name/disable/expiry — deliberately fewer
+// columns and only Send Link + Delete in the action menu, matching
+// exactly what its backend actually supports.
+function _clientPulseTableRow(u, uid){
+  return '<tr>'
+    +'<td><div class="cell-email">'+u.email+'</div></td>'
+    +'<td>'+_statusPills(u)+'</td>'
+    +'<td class="cell-muted">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</td>'
+    +'<td class="cell-muted">'+_lastLoginText(u)+'</td>'
+    +'<td class="actions-cell">'
+      +'<button class="dots-btn" onclick="_blinkButton(this);toggleActionMenu(\''+uid+'\',event);"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="19" r="1.2"></circle></svg></button>'
+      +'<div class="action-menu" id="menu-'+uid+'">'
+        +'<button onclick="_blinkButton(this);sendLink(\''+u.email+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4 20-7z"></path></svg>Send Access Link</button>'
+        +'<div class="divider"></div>'
+        +'<button class="danger" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>Delete User</button>'
       +'</div>'
-      +'</div>';
-  }).join('');
+    +'</td>'
+    +'</tr>';
+}
+
+function _summarizerMobileCard(u){
+  return '<div class="mobile-user-card">'
+    +'<div class="top"><div><div class="email">'+u.email+'</div>'+(u.name?'<div style="font-size:11.5px;color:var(--text-sec);">'+u.name+'</div>':'')+'</div>'
+    +'<button class="dots-btn" onclick="_blinkButton(this);viewUserDetail(\''+u.email+'\',\''+u.tier+'\');"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="19" r="1.2"></circle></svg></button></div>'
+    +'<div class="pills">'+_statusPills(u)+'</div>'
+    +'<div class="meta-grid">'
+      +'<div><div class="k">Branch</div><div class="v">'+(u.branch||'—')+'</div></div>'
+      +'<div><div class="k">Payment</div><div class="v">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</div></div>'
+      +'<div><div class="k">Started</div><div class="v">'+(u.firstLoginDate||'—')+'</div></div>'
+      +'<div><div class="k">Last Login</div><div class="v">'+_lastLoginText(u)+'</div></div>'
+    +'</div>'
+    +'<div class="modal-actions" style="margin-top:12px;">'
+      +'<button class="btn-cancel" style="height:38px;font-size:11px;" onclick="_blinkButton(this);sendLink(\''+u.email+'\');">SEND LINK</button>'
+      +'<button class="btn-cancel" style="height:38px;font-size:11px;" onclick="_blinkButton(this);toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+');">'+(u.disabled?'ENABLE':'DISABLE')+'</button>'
+      +'<button class="btn-danger" style="height:38px;font-size:11px;" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\');">DELETE</button>'
+    +'</div>'
+    +'</div>';
+}
+
+function _clientPulseMobileCard(u){
+  return '<div class="mobile-user-card">'
+    +'<div class="top"><div><div class="email">'+u.email+'</div></div></div>'
+    +'<div class="pills">'+_statusPills(u)+'</div>'
+    +'<div class="meta-grid">'
+      +'<div><div class="k">Payment</div><div class="v">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</div></div>'
+      +'<div><div class="k">Last Login</div><div class="v">'+_lastLoginText(u)+'</div></div>'
+    +'</div>'
+    +'<div class="modal-actions" style="margin-top:12px;">'
+      +'<button class="btn-cancel" style="height:38px;font-size:11px;" onclick="_blinkButton(this);sendLink(\''+u.email+'\');">SEND LINK</button>'
+      +'<button class="btn-danger" style="height:38px;font-size:11px;" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\');">DELETE</button>'
+    +'</div>'
+    +'</div>';
 }
 
 function toggleActionMenu(uid, evt){
@@ -1151,6 +1281,7 @@ function openAddModal(){
   document.getElementById('newTier').value='free';
   document.getElementById('newAmount').value='';
   document.getElementById('nameBulkNote').style.display='none';
+  document.getElementById('nameFieldsWrap').style.display = _currentApp==='clientpulse' ? 'none' : 'block';
   _toggleAmountField();
   document.getElementById('addModal').classList.add('show');
 }
