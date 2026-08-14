@@ -750,7 +750,6 @@ function switchApp(app){
   // Toggle the Users page's filter row and table columns to match
   // whichever backend is active.
   document.getElementById('branchFilter').style.display = app==='clientpulse' ? 'none' : '';
-  document.querySelector('[data-filter="disabled"]').style.display = app==='clientpulse' ? 'none' : '';
   document.querySelector('[data-filter="expiring"]').style.display = app==='clientpulse' ? 'none' : '';
   _renderUsersTableHead();
 
@@ -1093,8 +1092,13 @@ function _statusPills(u){
     // accountStatus is computed fresh by the backend on every request
     // (comparing Expiration against right now) rather than stored, so
     // this always reflects reality even if nobody's looked at this
-    // buyer in months.
-    out += ' <span class="pill '+(u.accountStatus==='expired'?'disabled':'active')+'">'+(u.accountStatus==='expired'?'EXPIRED':'ACTIVE')+'</span>';
+    // buyer in months. Disabled takes priority over it — a deliberately
+    // blocked account shouldn't also claim to be "active" underneath.
+    if(u.disabled){
+      out += ' <span class="pill disabled">DISABLED</span>';
+    } else {
+      out += ' <span class="pill '+(u.accountStatus==='expired'?'disabled':'active')+'">'+(u.accountStatus==='expired'?'EXPIRED':'ACTIVE')+'</span>';
+    }
   }
   if(!u.hasPassword) out += ' <span class="pill nosetup">NOT SET UP</span>';
   return out;
@@ -1119,7 +1123,7 @@ function renderUsers(){
   let list = _allUsers.slice();
   if(_activeFilter==='paid') list = list.filter(u=>u.tier==='paid');
   if(_activeFilter==='free') list = list.filter(u=>u.tier==='free');
-  if(_currentApp==='summarizer' && _activeFilter==='disabled') list = list.filter(u=>u.disabled);
+  if(_activeFilter==='disabled') list = list.filter(u=>u.disabled);
   if(_currentApp==='summarizer' && _activeFilter==='expiring') list = list.filter(u=>u.daysLeft!==null && u.daysLeft>=0 && u.daysLeft<=30);
   if(q) list = list.filter(u=>u.email.toLowerCase().includes(q));
   if(branchSel) list = list.filter(u=>(u.branch||'')===branchSel);
@@ -1169,8 +1173,9 @@ function _summarizerTableRow(u, uid){
 
 // Now matches the Summarizer's 9-column layout exactly, using the
 // Plan/Branch/Start Date/Expiration fields the Client Pulse backend
-// added — action menu still only offers what its backend actually
-// supports (no Disable/View Detail concept there, unlike Summarizer).
+// added, plus the same Disable/Enable toggle Summarizer already has —
+// toggleUser() is shared between both apps and already routes to
+// whichever backend is currently active.
 function _clientPulseTableRow(u, uid){
   return '<tr>'
     +'<td><div class="cell-email">'+u.email+'</div></td>'
@@ -1185,6 +1190,7 @@ function _clientPulseTableRow(u, uid){
       +'<button class="dots-btn" onclick="_blinkButton(this);toggleActionMenu(\''+uid+'\',event);"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="19" r="1.2"></circle></svg></button>'
       +'<div class="action-menu" id="menu-'+uid+'">'
         +'<button onclick="_blinkButton(this);sendLink(\''+u.email+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4 20-7z"></path></svg>Send Access Link</button>'
+        +'<button onclick="_blinkButton(this);toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"></line></svg>'+(u.disabled?'Enable Account':'Disable Account')+'</button>'
         +'<div class="divider"></div>'
         +'<button class="danger" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\');closeAllActionMenus();"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>Delete User</button>'
       +'</div>'
@@ -1225,6 +1231,7 @@ function _clientPulseMobileCard(u){
     +'</div>'
     +'<div class="modal-actions" style="margin-top:12px;">'
       +'<button class="btn-cancel" style="height:38px;font-size:11px;" onclick="_blinkButton(this);sendLink(\''+u.email+'\');">SEND LINK</button>'
+      +'<button class="btn-cancel" style="height:38px;font-size:11px;" onclick="_blinkButton(this);toggleUser(\''+u.email+'\',\''+u.tier+'\','+(!u.disabled)+');">'+(u.disabled?'ENABLE':'DISABLE')+'</button>'
       +'<button class="btn-danger" style="height:38px;font-size:11px;" onclick="_blinkButton(this);deleteUser(\''+u.email+'\',\''+u.tier+'\');">DELETE</button>'
     +'</div>'
     +'</div>';
