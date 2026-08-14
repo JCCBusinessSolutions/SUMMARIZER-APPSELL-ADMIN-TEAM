@@ -771,12 +771,9 @@ function switchApp(app){
 
 function _renderUsersTableHead(){
   const row = document.getElementById('usersTableHeadRow');
-  if(_currentApp==='clientpulse'){
-    row.innerHTML = '<th>User</th><th>Status</th><th>Payment</th><th>Last Login</th><th style="text-align:right;">Actions</th>';
-  } else {
-    row.innerHTML = '<th>User</th><th>Status</th><th>Plan</th><th>Payment</th><th>Branch</th>'
-      + '<th>Start Date</th><th>Expiration</th><th>Last Login</th><th style="text-align:right;">Actions</th>';
-  }
+  // Both apps now use the exact same 9-column layout.
+  row.innerHTML = '<th>User</th><th>Status</th><th>Plan</th><th>Payment</th><th>Branch</th>'
+    + '<th>Start Date</th><th>Expiration</th><th>Last Login</th><th style="text-align:right;">Actions</th>';
 }
 
 function showToast(msg, isErr){
@@ -1092,6 +1089,13 @@ function _statusPills(u){
     if(u.daysLeft!==null && u.daysLeft<0) out += ' <span class="pill disabled">EXPIRED</span>';
     else if(u.daysLeft!==null && u.daysLeft<=30) out += ' <span class="pill expiring">'+u.daysLeft+'D LEFT</span>';
   }
+  if(_currentApp==='clientpulse'){
+    // accountStatus is computed fresh by the backend on every request
+    // (comparing Expiration against right now) rather than stored, so
+    // this always reflects reality even if nobody's looked at this
+    // buyer in months.
+    out += ' <span class="pill '+(u.accountStatus==='expired'?'disabled':'active')+'">'+(u.accountStatus==='expired'?'EXPIRED':'ACTIVE')+'</span>';
+  }
   if(!u.hasPassword) out += ' <span class="pill nosetup">NOT SET UP</span>';
   return out;
 }
@@ -1110,7 +1114,7 @@ function renderUsers(){
   const branchSel = _currentApp==='summarizer' ? (document.getElementById('branchFilter').value||'') : '';
   const dateFrom = document.getElementById('dateStartFrom').value||'';
   const dateTo = document.getElementById('dateStartTo').value||'';
-  const colCount = _currentApp==='clientpulse' ? 5 : 9;
+  const colCount = 9;
 
   let list = _allUsers.slice();
   if(_activeFilter==='paid') list = list.filter(u=>u.tier==='paid');
@@ -1163,14 +1167,19 @@ function _summarizerTableRow(u, uid){
     +'</tr>';
 }
 
-// Client Pulse has no branch/name/disable/expiry — deliberately fewer
-// columns and only Send Link + Delete in the action menu, matching
-// exactly what its backend actually supports.
+// Now matches the Summarizer's 9-column layout exactly, using the
+// Plan/Branch/Start Date/Expiration fields the Client Pulse backend
+// added — action menu still only offers what its backend actually
+// supports (no Disable/View Detail concept there, unlike Summarizer).
 function _clientPulseTableRow(u, uid){
   return '<tr>'
     +'<td><div class="cell-email">'+u.email+'</div></td>'
     +'<td>'+_statusPills(u)+'</td>'
+    +'<td class="cell-muted">'+(u.tier==='paid'?'Paid (Buyers)':'Free (Email Access)')+'</td>'
     +'<td class="cell-muted">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</td>'
+    +'<td class="cell-muted">'+(u.branch||'—')+'</td>'
+    +'<td class="cell-muted">'+(u.startDate||'—')+'</td>'
+    +'<td class="cell-muted">'+(u.expiration||'—')+'</td>'
     +'<td class="cell-muted">'+_lastLoginText(u)+'</td>'
     +'<td class="actions-cell">'
       +'<button class="dots-btn" onclick="_blinkButton(this);toggleActionMenu(\''+uid+'\',event);"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="19" r="1.2"></circle></svg></button>'
@@ -1207,7 +1216,11 @@ function _clientPulseMobileCard(u){
     +'<div class="top"><div><div class="email">'+u.email+'</div></div></div>'
     +'<div class="pills">'+_statusPills(u)+'</div>'
     +'<div class="meta-grid">'
+      +'<div><div class="k">Plan</div><div class="v">'+(u.tier==='paid'?'Paid (Buyers)':'Free (Email Access)')+'</div></div>'
+      +'<div><div class="k">Branch</div><div class="v">'+(u.branch||'—')+'</div></div>'
       +'<div><div class="k">Payment</div><div class="v">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</div></div>'
+      +'<div><div class="k">Started</div><div class="v">'+(u.startDate||'—')+'</div></div>'
+      +'<div><div class="k">Expires</div><div class="v">'+(u.expiration||'—')+'</div></div>'
       +'<div><div class="k">Last Login</div><div class="v">'+_lastLoginText(u)+'</div></div>'
     +'</div>'
     +'<div class="modal-actions" style="margin-top:12px;">'
