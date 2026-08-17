@@ -1130,6 +1130,15 @@ function renderUsers(){
   if(dateFrom) list = list.filter(u=>(u.firstLoginRaw||u.lastPaymentRaw) && (u.firstLoginRaw||u.lastPaymentRaw)>=dateFrom);
   if(dateTo) list = list.filter(u=>(u.firstLoginRaw||u.lastPaymentRaw) && (u.firstLoginRaw||u.lastPaymentRaw)<=dateTo);
 
+  // Recently added first — new users always get appended to the END of
+  // their sheet, so a higher row number reliably means "added later"
+  // within that same sheet. Applies to both apps: for Summarizer, exact
+  // when filtered to PAID or FREE alone (one sheet), an approximation
+  // when viewing ALL (EMAIL ACCESS + BUYERS combined, row numbers from
+  // two different sheets aren't directly comparable). For Client Pulse
+  // — a single sheet — this is always exact.
+  list.sort((a,b) => (b.row||0) - (a.row||0));
+
   document.getElementById('usersSubtitle').textContent = _allUsers.length+' total users';
 
   const tbody = document.getElementById('usersTableBody');
