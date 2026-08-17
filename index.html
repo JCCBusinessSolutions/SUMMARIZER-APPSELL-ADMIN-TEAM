@@ -885,36 +885,66 @@ function _globalSearchInput(){
 </script>
 <script>
 // ── Reusable SVG area/line chart (no external library) ──
-function _renderAreaChart(containerId, monthlyAsc){
+// Bar chart — one bar per month, tallest bar highlighted in gold so the
+// best month is immediately obvious at a glance. Replaced the earlier
+// line/area version: with real revenue data this sparse (often just
+// 1-2 dated months so far, see the "undated" note elsewhere on this
+// page), a line chart had nothing to connect and just looked broken —
+// a single bar is a completely normal, clear thing to show instead.
+function _renderRevenueChart(containerId, monthlyAsc){
   const el = document.getElementById(containerId);
   if(!el) return;
   if(!monthlyAsc || monthlyAsc.length===0){
     el.innerHTML = '<div class="chart-empty">No dated payments yet<br><span style="font-size:11.5px;">Revenue will appear here as buyers pay or renew.</span></div>';
     return;
   }
-  const w=640,h=220,pad=32;
+  const w=640,h=240,padTop=36,padBottom=34,padSide=24;
   const max = Math.max.apply(null, monthlyAsc.map(m=>m.total).concat([1]));
   const n = monthlyAsc.length;
-  const stepX = n>1 ? (w-2*pad)/(n-1) : 0;
-  const pts = monthlyAsc.map((m,i)=>{
-    const x = n>1 ? pad+i*stepX : w/2;
-    const y = h-pad-(m.total/max)*(h-2*pad);
-    return {x:x,y:y,label:m.label,total:m.total};
+  const plotW = w - padSide*2;
+  const plotH = h - padTop - padBottom;
+  const gap = n>1 ? Math.min(18, plotW/n*0.25) : 0;
+  const maxBarW = 60;
+  const barW = Math.min(maxBarW, Math.max(10, (plotW - gap*(n-1)) / n));
+  const totalBarsWidth = barW*n + gap*(n-1);
+  const startX = padSide + (plotW - totalBarsWidth)/2; // centers the group when there are few bars, so 1-2 months doesn't look stretched or off to one side
+
+  const bars = monthlyAsc.map((m,i)=>{
+    const barH = m.total>0 ? Math.max(3, (m.total/max)*plotH) : 2;
+    const x = startX + i*(barW+gap);
+    const y = h - padBottom - barH;
+    const isHighest = m.total===max && m.total>0;
+    return {x:x,y:y,barW:barW,barH:barH,label:m.label,total:m.total,isHighest:isHighest};
   });
-  const line = pts.map((p,i)=>(i===0?'M':'L')+p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');
-  const area = line+' L'+pts[pts.length-1].x.toFixed(1)+','+(h-pad)+' L'+pts[0].x.toFixed(1)+','+(h-pad)+' Z';
-  const dots = pts.map(p=>'<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4.5" fill="#D9A62E" stroke="#fff" stroke-width="1.5"></circle>').join('');
-  const showAll = n<=8;
-  const labels = pts.map((p,i)=>{
-    if(!(showAll || i===0 || i===pts.length-1)) return '';
-    return '<text x="'+p.x.toFixed(1)+'" y="'+(h-10)+'" font-size="9.5" fill="#6B7280" text-anchor="middle" font-family="Inter,sans-serif">'+p.label+'</text>';
+
+  const rects = bars.map(b=>
+    '<rect x="'+b.x.toFixed(1)+'" y="'+b.y.toFixed(1)+'" width="'+b.barW.toFixed(1)+'" height="'+b.barH.toFixed(1)+'" rx="4" fill="'+(b.isHighest?'#D9A62E':'#0B477D')+'"><title>'+b.label+': ₱'+Math.round(b.total).toLocaleString('en-US')+'</title></rect>'
+  ).join('');
+
+  const showAllLabels = n<=8;
+  const rotateLabels = n>6;
+  const monthLabels = bars.map((b,i)=>{
+    if(!(showAllLabels || i===0 || i===bars.length-1)) return '';
+    const cx = b.x + b.barW/2;
+    if(rotateLabels){
+      return '<text x="'+cx.toFixed(1)+'" y="'+(h-padBottom+14)+'" font-size="9" fill="#6B7280" text-anchor="end" font-family="Inter,sans-serif" transform="rotate(-35 '+cx.toFixed(1)+' '+(h-padBottom+14)+')">'+b.label+'</text>';
+    }
+    return '<text x="'+cx.toFixed(1)+'" y="'+(h-padBottom+16)+'" font-size="9.5" fill="#6B7280" text-anchor="middle" font-family="Inter,sans-serif">'+b.label+'</text>';
   }).join('');
-  const valueLabels = pts.map(p=>'<text x="'+p.x.toFixed(1)+'" y="'+(p.y-10)+'" font-size="9.5" fill="#0B477D" font-weight="700" text-anchor="middle" font-family="Inter,sans-serif">₱'+Math.round(p.total).toLocaleString('en-US')+'</text>').join('');
+
+  const valueLabels = bars.map(b=>{
+    const cx = b.x + b.barW/2;
+    return '<text x="'+cx.toFixed(1)+'" y="'+(b.y-8).toFixed(1)+'" font-size="9.5" fill="'+(b.isHighest?'#8A6416':'#0B477D')+'" font-weight="700" text-anchor="middle" font-family="Inter,sans-serif">₱'+Math.round(b.total).toLocaleString('en-US')+'</text>';
+  }).join('');
+
+  const highestBadge = bars.filter(b=>b.isHighest && n>1).map(b=>{
+    const cx = b.x + b.barW/2;
+    return '<text x="'+cx.toFixed(1)+'" y="'+(b.y-20).toFixed(1)+'" font-size="8" fill="#D9A62E" font-weight="700" text-anchor="middle" font-family="Inter,sans-serif" letter-spacing="0.5">HIGHEST</text>';
+  }).join('');
+
   el.innerHTML = '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="xMidYMid meet">'
-    +'<defs><linearGradient id="areaGrad_'+containerId+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0B477D" stop-opacity="0.22"/><stop offset="100%" stop-color="#0B477D" stop-opacity="0"/></linearGradient></defs>'
-    +'<path d="'+area+'" fill="url(#areaGrad_'+containerId+')"></path>'
-    +'<path d="'+line+'" fill="none" stroke="#0B477D" stroke-width="2.5"></path>'
-    +dots+valueLabels+labels
+    + '<line x1="'+padSide+'" y1="'+(h-padBottom)+'" x2="'+(w-padSide)+'" y2="'+(h-padBottom)+'" stroke="#E5E7EB" stroke-width="1"></line>'
+    + rects + valueLabels + highestBadge + monthLabels
     +'</svg>';
 }
 
@@ -982,7 +1012,7 @@ function renderDashboardKpis(){
 function setDashRevRange(months){
   _dashRevMonths = months;
   document.querySelectorAll('#dashRevRangeRow .pill-toggle').forEach(b=>b.classList.toggle('active', Number(b.dataset.months)===months));
-  if(_revenueData) _renderAreaChart('dashRevChart', _monthsAscendingFromData(_revenueData.monthly, months));
+  if(_revenueData) _renderRevenueChart('dashRevChart', _monthsAscendingFromData(_revenueData.monthly, months));
 }
 
 function setDashLogsRange(range){
@@ -1442,7 +1472,7 @@ function loadRevenue(){
       }
       _revenueData = data;
       renderDashboardKpis();
-      if(_currentView==='dashboard') _renderAreaChart('dashRevChart', _monthsAscendingFromData(data.monthly, _dashRevMonths));
+      if(_currentView==='dashboard') _renderRevenueChart('dashRevChart', _monthsAscendingFromData(data.monthly, _dashRevMonths));
       if(_currentView==='revenue') renderRevenuePage(data);
     })
     .catch(err=>{
@@ -1454,7 +1484,7 @@ function loadRevenue(){
 function setRevChartRange(months){
   _revMonths = months;
   document.querySelectorAll('#revRangeRow .pill-toggle').forEach(b=>b.classList.toggle('active', Number(b.dataset.months)===months));
-  if(_revenueData) _renderAreaChart('revChart', _monthsAscendingFromData(_revenueData.monthly, months));
+  if(_revenueData) _renderRevenueChart('revChart', _monthsAscendingFromData(_revenueData.monthly, months));
 }
 
 function renderRevenuePage(data){
@@ -1476,7 +1506,7 @@ function renderRevenuePage(data){
     '<div class="kpi-card"><div class="kpi-label">Paid Users</div><div class="kpi-value">'+paidCount+'</div></div>'+
     '<div class="kpi-card"><div class="kpi-label">Average Purchase</div><div class="kpi-value">'+fmt(avgPurchase)+'</div></div>';
 
-  _renderAreaChart('revChart', _monthsAscendingFromData(monthly, _revMonths));
+  _renderRevenueChart('revChart', _monthsAscendingFromData(monthly, _revMonths));
 
   const tbody = document.getElementById('revMonthlyBody');
   if(monthly.length===0){
