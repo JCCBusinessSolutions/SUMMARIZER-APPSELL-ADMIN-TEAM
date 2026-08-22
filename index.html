@@ -1321,7 +1321,7 @@ function _summarizerTableRow(u, uid){
 // whichever backend is currently active.
 function _clientPulseTableRow(u, uid){
   return '<tr>'
-    +'<td><div class="cell-email">'+u.email+'</div></td>'
+    +'<td><div class="cell-email">'+u.email+'</div>'+(u.name?'<div class="cell-sub">'+u.name+'</div>':'')+'</td>'
     +'<td>'+_statusPills(u)+'</td>'
     +'<td class="cell-muted">'+(u.tier==='paid'?'Paid (Buyers)':'Free (Email Access)')+'</td>'
     +'<td class="cell-muted">'+(u.amountPaid!==null&&u.amountPaid!==undefined?'₱'+Number(u.amountPaid).toLocaleString('en-US'):'—')+'</td>'
@@ -1362,7 +1362,7 @@ function _summarizerMobileCard(u){
 
 function _clientPulseMobileCard(u){
   return '<div class="mobile-user-card">'
-    +'<div class="top"><div><div class="email">'+u.email+'</div></div></div>'
+    +'<div class="top"><div><div class="email">'+u.email+'</div>'+(u.name?'<div style="font-size:11.5px;color:var(--text-sec);">'+u.name+'</div>':'')+'</div></div>'
     +'<div class="pills">'+_statusPills(u)+'</div>'
     +'<div class="meta-grid">'
       +'<div><div class="k">Plan</div><div class="v">'+(u.tier==='paid'?'Paid (Buyers)':'Free (Email Access)')+'</div></div>'
@@ -1444,7 +1444,7 @@ function openAddModal(){
   document.getElementById('newTier').value='free';
   document.getElementById('newAmount').value='';
   document.getElementById('nameBulkNote').style.display='none';
-  document.getElementById('nameFieldsWrap').style.display = _currentApp==='clientpulse' ? 'none' : 'block';
+  document.getElementById('nameFieldsWrap').style.display = 'block';
   _toggleAmountField();
   document.getElementById('addModal').classList.add('show');
 }
