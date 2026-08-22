@@ -633,6 +633,30 @@ table.dt tr:hover td{background:var(--bg);}
         <div class="detail-row"><div class="k">Connected apps</div><div class="v">Summarizer, App Sell</div></div>
         <div class="detail-row"><div class="k">Data source</div><div class="v">Google Sheets (EMAIL ACCESS, BUYERS, Login Log)</div></div>
       </div>
+      <div class="panel" id="policyAgreementPanel" style="display:none;">
+        <div class="panel-head">
+          <div>
+            <h2>Policy Agreement</h2>
+            <div class="sub">Controls the version gate on Client Pulse login. Bumping the version here re-gates every Advisor behind the acceptance modal on their next login — a hard block, no snooze.</div>
+          </div>
+        </div>
+        <div style="padding:4px 2px 16px;">
+          <div class="detail-row"><div class="k">Current version live on Client Pulse</div><div class="v" id="paCurrentVersionDisplay">Loading…</div></div>
+          <div class="detail-row"><div class="k">Effective date live on Client Pulse</div><div class="v" id="paCurrentEffectiveDateDisplay">Loading…</div></div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 2px 8px;">
+          <div style="flex:1;min-width:160px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--text-sec);margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px;">New Version</label>
+            <input type="text" id="paVersionInput" placeholder="e.g. 2.1" style="width:100%;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:8px;font-size:14px;font-family:inherit;">
+          </div>
+          <div style="flex:1;min-width:160px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--text-sec);margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px;">Effective Date</label>
+            <input type="text" id="paEffectiveDateInput" placeholder="e.g. September 1, 2026" style="width:100%;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:8px;font-size:14px;font-family:inherit;">
+          </div>
+        </div>
+        <div id="paSaveStatus" style="font-size:12px;margin:0 2px 10px;display:none;"></div>
+        <button class="btn-primary" onclick="savePolicyAgreementConfig()" id="paSaveBtn" style="padding:10px 18px;border:none;border-radius:8px;background:var(--navy,#0C447C);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">SAVE &amp; RE-GATE ALL ADVISORS</button>
+      </div>
       <div class="panel">
         <div class="panel-head"><h2>Notes</h2></div>
         <div style="font-size:12.5px;color:var(--text-sec);line-height:1.7;">
@@ -766,6 +790,7 @@ function switchApp(app){
   loadDashLogs(_dashLogsRange);
   if(_currentView==='revenue') loadRevenue();
   if(_currentView==='logs') setLogsRange(_logsRange);
+  if(_currentView==='settings') refreshPolicyAgreementPanel();
 }
 
 function _renderUsersTableHead(){
@@ -862,10 +887,89 @@ function navTo(view){
   if(view==='logs' && _logsData) renderLogs(_logsData);
   if(view==='access') renderAccessControl();
   if(view==='branches') renderBranches();
+  if(view==='settings') refreshPolicyAgreementPanel();
 }
 
 function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarOverlay').classList.add('show'); }
 function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('show'); }
+
+// ── Policy Agreement panel (Settings) ──
+// Only meaningful for Client Pulse — the Summarizer/AppSell app doesn't
+// have this login gate, so the panel is hidden entirely outside that
+// context rather than shown disabled, to avoid implying it does
+// something it doesn't.
+function refreshPolicyAgreementPanel(){
+  const panel = document.getElementById('policyAgreementPanel');
+  if(!panel) return;
+  if(_currentApp !== 'clientpulse'){
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  fetch(SCRIPT_URL_CLIENTPULSE+'?action=adminGetPolicyConfig&adminPassword='+encodeURIComponent(_adminPassword),{method:'GET',redirect:'follow',cache:'no-store'})
+    .then(r=>r.json())
+    .then(data=>{
+      if(data && data.status==='ok'){
+        document.getElementById('paCurrentVersionDisplay').textContent = data.version || '(not set — gate is inactive)';
+        document.getElementById('paCurrentEffectiveDateDisplay').textContent = data.effectiveDate || '—';
+        document.getElementById('paVersionInput').value = data.version || '';
+        document.getElementById('paEffectiveDateInput').value = data.effectiveDate || '';
+      } else {
+        document.getElementById('paCurrentVersionDisplay').textContent = 'Could not load';
+        document.getElementById('paCurrentEffectiveDateDisplay').textContent = 'Could not load';
+      }
+    })
+    .catch(()=>{
+      document.getElementById('paCurrentVersionDisplay').textContent = 'Could not load';
+      document.getElementById('paCurrentEffectiveDateDisplay').textContent = 'Could not load';
+    });
+}
+
+function savePolicyAgreementConfig(){
+  const version = document.getElementById('paVersionInput').value.trim();
+  const effectiveDate = document.getElementById('paEffectiveDateInput').value.trim();
+  const statusEl = document.getElementById('paSaveStatus');
+  const btn = document.getElementById('paSaveBtn');
+
+  if(!version){
+    statusEl.textContent = 'Version is required.';
+    statusEl.style.color = '#C0392B';
+    statusEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'SAVING...';
+  statusEl.style.display = 'none';
+
+  fetch(SCRIPT_URL_CLIENTPULSE, {
+    method:'POST',
+    body: JSON.stringify({ action:'adminSetPolicyConfig', adminPassword:_adminPassword, version:version, effectiveDate:effectiveDate })
+  })
+    .then(r=>r.json())
+    .then(data=>{
+      if(data && data.status==='ok'){
+        statusEl.textContent = 'Saved. Every Advisor will be re-gated behind the acceptance modal on their next login.';
+        statusEl.style.color = '#27AE60';
+        statusEl.style.display = 'block';
+        document.getElementById('paCurrentVersionDisplay').textContent = data.version || version;
+        document.getElementById('paCurrentEffectiveDateDisplay').textContent = data.effectiveDate || effectiveDate;
+      } else {
+        statusEl.textContent = (data && data.message) || 'Could not save. Please try again.';
+        statusEl.style.color = '#C0392B';
+        statusEl.style.display = 'block';
+      }
+    })
+    .catch(()=>{
+      statusEl.textContent = 'Could not save right now. Please check your connection and try again.';
+      statusEl.style.color = '#C0392B';
+      statusEl.style.display = 'block';
+    })
+    .finally(()=>{
+      btn.disabled = false;
+      btn.textContent = 'SAVE & RE-GATE ALL ADVISORS';
+    });
+}
 
 function refreshCurrentView(){
   if(_currentView==='dashboard'){ loadRevenue(); loadDashLogs(_dashLogsRange); loadUsers(); }
